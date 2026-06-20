@@ -35,7 +35,9 @@ export default async function handler(request, response) {
     const upstream = await fetch(`${baseUrl}/obd-codes/${encodeURIComponent(code)}`, { headers })
     if (!upstream.ok) return response.status(upstream.status === 404 ? 404 : 502).json({ error: 'DTC provider unavailable' })
     const payload = await upstream.json()
-    const data = payload.data || payload
+    const rawData = payload.data || payload.obd_code || payload
+    const data = Array.isArray(rawData) ? rawData.find(item => String(item.code || '').toUpperCase() === code) || rawData[0] : rawData
+    if (!data || !(data.description || data.definition || data.name)) return response.status(404).json({ error: 'DTC description not found' })
     return response.status(200).setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800').json({
       code,
       description: data.description || data.definition || data.name || null,
