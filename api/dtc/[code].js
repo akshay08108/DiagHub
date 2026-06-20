@@ -1,4 +1,5 @@
 import { dtcCatalog } from '../../src/data/diagnostics.js'
+import { getCarApiJwt } from '../lib/carapi.js'
 
 const CODE_PATTERN = /^[PBCU][0-9A-F]{4}$/
 
@@ -16,11 +17,21 @@ export default async function handler(request, response) {
     source: 'diaghub',
   })
 
+  const misfireCylinder = /^P03(0[1-9]|1[0-2])$/.test(code) ? Number(code.slice(3)) : 0
+  if (misfireCylinder) return response.status(200).setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800').json({
+    code,
+    description: `Cylinder ${misfireCylinder} misfire detected`,
+    explanation: `Cylinder ${misfireCylinder} is not burning fuel correctly. The engine may shake, lose power, or use more fuel.`,
+    causes: ['Worn spark plug', 'Faulty ignition coil', 'Fuel injector or compression issue'],
+    source: 'diaghub',
+  })
+
   const baseUrl = process.env.CARAPI_BASE_URL || 'https://carapi.app/api'
   const headers = { Accept: 'application/json' }
-  if (process.env.CARAPI_TOKEN) headers.Authorization = `Bearer ${process.env.CARAPI_TOKEN}`
 
   try {
+    const jwt = await getCarApiJwt()
+    if (jwt) headers.Authorization = `Bearer ${jwt}`
     const upstream = await fetch(`${baseUrl}/obd-codes/${encodeURIComponent(code)}`, { headers })
     if (!upstream.ok) return response.status(upstream.status === 404 ? 404 : 502).json({ error: 'DTC provider unavailable' })
     const payload = await upstream.json()
