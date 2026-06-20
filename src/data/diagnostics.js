@@ -87,6 +87,13 @@ export function diagnosisFor(code, language = 'en', remote = null) {
   const localizedEntry = localized[language]?.[code]
   const entry = localizedEntry || dtcCatalog[code]
   if (entry) return { title: entry[0], summary: entry[1], causes: entry[2], urgency: fallback.urgency }
+  const misfireCylinder = /^P03(0[1-9]|1[0-2])$/.test(code) ? Number(code.slice(3)) : 0
+  if (misfireCylinder) return {
+    title: `Cylinder ${misfireCylinder} misfire detected`,
+    summary: `Cylinder ${misfireCylinder} is not burning fuel correctly. The engine may shake, lose power, or use more fuel.`,
+    causes: ['Worn spark plug', 'Faulty ignition coil', 'Fuel injector or compression issue'],
+    urgency: fallback.urgency,
+  }
   if (remote) return { ...remote, urgency: fallback.urgency }
   return { title: `${code} — ${fallback.unknown}`, summary: fallback.summary, causes: [fallback.urgency], urgency: fallback.urgency }
 }
