@@ -64,21 +64,28 @@ export default function GooglePlacePicker({ value, address, onSelect }) {
     setLocating(true)
     setError('')
     navigator.geolocation.getCurrentPosition(async position => {
+      const location = { lat: position.coords.latitude, lng: position.coords.longitude }
+      const fallbackPlace = {
+        placeId: `device-${location.lat.toFixed(6)}-${location.lng.toFixed(6)}`,
+        address: `Current location (${location.lat.toFixed(5)}, ${location.lng.toFixed(5)})`,
+        latitude: location.lat,
+        longitude: location.lng,
+      }
+      onSelectRef.current(fallbackPlace)
       try {
         const maps = await loadMaps(key)
         const geocoder = new maps.Geocoder()
-        const location = { lat: position.coords.latitude, lng: position.coords.longitude }
         const response = await geocoder.geocode({ location })
         const result = response.results?.[0]
         const pincode = result?.address_components?.find(component => component.types.includes('postal_code'))?.long_name || ''
         onSelectRef.current({
-          placeId: result?.place_id || `device-${location.lat.toFixed(6)}-${location.lng.toFixed(6)}`,
+          placeId: result?.place_id || fallbackPlace.placeId,
           address: result?.formatted_address || `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
           latitude: location.lat,
           longitude: location.lng,
           ...(pincode ? { pincode } : {}),
         })
-      } catch (err) { setError(err.message || 'Could not identify this location') }
+      } catch { setError('Location captured. Google could not convert it to an address, so please also enter the shop address.') }
       finally { setLocating(false) }
     }, err => {
       setLocating(false)
