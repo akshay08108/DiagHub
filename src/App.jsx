@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { backendEnabled, collectPilotPayment, fetchVerifiedBusinesses, mapBusiness, sendPhoneOtp, submitBusinessApplication, verifyPhoneOtp } from './lib/supabaseRest.js'
-import GooglePlacePicker from './components/GooglePlacePicker.jsx'
+import GooglePlacePicker, { resolvePincode } from './components/GooglePlacePicker.jsx'
+import { diagnosisFor, dtcCatalog } from './data/diagnostics.js'
+import { vehicleMakes, vehicleYears } from './data/vehicles.js'
 
 const languages = [
   ['en', 'English'], ['hi', 'हिन्दी'], ['te', 'తెలుగు'],
@@ -14,14 +16,6 @@ const copy = {
   ta: { eyebrow: 'தெளிவான பதில்கள். நம்பகமான உள்ளூர் உதவி.', title: 'வாகன எச்சரிக்கை விளக்கு இனி மர்மமல்ல.', intro: 'பிழைக் குறியீட்டை உள்ளிடுங்கள் அல்லது புகைப்படத்தை ஸ்கேன் செய்யுங்கள். அதன் பொருள், அவசரம் மற்றும் அருகிலுள்ள உதவியை Diaghub விளக்கும்.', diagnose: 'கண்டறிதல்', nearby: 'அருகில்', garage: 'என் வாகனங்கள்', code: 'குறியீட்டை உள்ளிடு', photo: 'படத்தை ஸ்கேன் செய்', explain: 'குறியீட்டை விளக்கு', local: 'நம்பகமான உதவி, உங்கள் அருகில்.' },
   kn: { eyebrow: 'ಸ್ಪಷ್ಟ ಉತ್ತರಗಳು. ವಿಶ್ವಾಸಾರ್ಹ ಸ್ಥಳೀಯ ಸಹಾಯ.', title: 'ವಾಹನದ ಎಚ್ಚರಿಕೆ ದೀಪ ಇನ್ನು ರಹಸ್ಯವಲ್ಲ.', intro: 'ದೋಷ ಕೋಡ್ ನಮೂದಿಸಿ ಅಥವಾ ಫೋಟೋ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ. ಅದರ ಅರ್ಥ, ತುರ್ತು ಮತ್ತು ಹತ್ತಿರದ ಸಹಾಯವನ್ನು Diaghub ವಿವರಿಸುತ್ತದೆ.', diagnose: 'ಪರಿಶೀಲನೆ', nearby: 'ಹತ್ತಿರ', garage: 'ನನ್ನ ವಾಹನಗಳು', code: 'ಕೋಡ್ ನಮೂದಿಸಿ', photo: 'ಫೋಟೋ ಸ್ಕ್ಯಾನ್', explain: 'ಕೋಡ್ ವಿವರಿಸಿ', local: 'ವಿಶ್ವಾಸಾರ್ಹ ಸಹಾಯ, ನಿಮ್ಮ ಹತ್ತಿರ.' },
   ml: { eyebrow: 'വ്യക്തമായ ഉത്തരങ്ങൾ. വിശ്വസനീയമായ പ്രാദേശിക സഹായം.', title: 'വാഹന മുന്നറിയിപ്പ് ലൈറ്റ് ഇനി ഒരു രഹസ്യമല്ല.', intro: 'ഫോൾട്ട് കോഡ് നൽകുക അല്ലെങ്കിൽ ചിത്രം സ്കാൻ ചെയ്യുക. അർത്ഥം, അടിയന്തരത, സമീപ സഹായം എന്നിവ Diaghub വിശദീകരിക്കും.', diagnose: 'പരിശോധന', nearby: 'സമീപത്ത്', garage: 'എന്റെ വാഹനങ്ങൾ', code: 'കോഡ് നൽകുക', photo: 'ചിത്രം സ്കാൻ ചെയ്യുക', explain: 'കോഡ് വിശദീകരിക്കുക', local: 'വിശ്വസനീയമായ സഹായം, നിങ്ങളുടെ സമീപത്ത്.' },
-}
-
-const dtcData = {
-  P0301: { title: 'Cylinder 1 misfire detected', summary: 'Cylinder 1 is not burning fuel correctly. You may notice shaking, weak acceleration, or higher fuel use.', urgency: 'Get it checked soon', causes: ['Worn spark plug', 'Faulty ignition coil', 'Fuel injector issue'] },
-  P0300: { title: 'Random or multiple cylinder misfire', summary: 'The engine is misfiring across more than one cylinder. The cause may affect ignition, fuel, or airflow.', urgency: 'Get it checked soon', causes: ['Weak ignition system', 'Vacuum or air leak', 'Fuel pressure problem'] },
-  P0420: { title: 'Catalyst efficiency below threshold', summary: 'The catalytic converter is not cleaning exhaust as effectively as expected.', urgency: 'Plan a workshop visit', causes: ['Worn catalytic converter', 'Faulty oxygen sensor', 'Exhaust leak'] },
-  P0171: { title: 'Engine running too lean — Bank 1', summary: 'The engine is receiving too much air or not enough fuel.', urgency: 'Get it checked soon', causes: ['Vacuum leak', 'Dirty airflow sensor', 'Low fuel pressure'] },
-  P0562: { title: 'System voltage too low', summary: 'The vehicle detected low electrical voltage. Starting trouble or dim lights may appear.', urgency: 'Check before your next trip', causes: ['Weak battery', 'Alternator problem', 'Loose or corroded cable'] },
 }
 
 const seedBusinesses = [
@@ -42,9 +36,15 @@ function App() {
   const [mode, setMode] = useState('code')
   const [code, setCode] = useState('P0301')
   const [resultCode, setResultCode] = useState('P0301')
+  const [remoteDiagnosis, setRemoteDiagnosis] = useState(null)
   const [codeError, setCodeError] = useState(false)
   const [pincode, setPincode] = useState('505325')
   const [areaPincode, setAreaPincode] = useState('505325')
+  const [areaLabel, setAreaLabel] = useState('Jagtial region')
+  const [updatingArea, setUpdatingArea] = useState(false)
+  const [vehicleType, setVehicleType] = useState('car')
+  const [vehicleMake, setVehicleMake] = useState(vehicleMakes.car[0])
+  const [vehicleYear, setVehicleYear] = useState(vehicleYears[0])
   const [radius, setRadius] = useState(25)
   const [filter, setFilter] = useState('all')
   const [vehicleFilter, setVehicleFilter] = useState('all')
@@ -57,7 +57,7 @@ function App() {
   })
   const [remoteBusinesses, setRemoteBusinesses] = useState([])
   const t = copy[language] || copy.en
-  const diagnosis = dtcData[resultCode] || { title: `${resultCode} — description coming to the full database`, summary: 'This is a valid DTC format, but its verified description is not yet included in the pilot library. Do not replace parts based only on the code.', urgency: 'Confirm with a professional scanner', causes: ['Manufacturer-specific definition', 'Vehicle details required', 'Further diagnosis required'] }
+  const diagnosis = diagnosisFor(resultCode, language, remoteDiagnosis)
 
   useEffect(() => { localStorage.setItem('diaghubReactBusinesses', JSON.stringify(pilotBusinesses)) }, [pilotBusinesses])
   useEffect(() => { if (backendEnabled) fetchVerifiedBusinesses().then(rows => setRemoteBusinesses(rows.map(mapBusiness))).catch(() => setToast('Could not load live businesses')) }, [])
@@ -74,15 +74,28 @@ function App() {
     const clean = code.toUpperCase().trim()
     if (!/^[PBCU][0-9A-F]{4}$/.test(clean)) { setCodeError(true); return }
     setCodeError(false)
-    try {
+    setRemoteDiagnosis(null)
+    if (!dtcCatalog[clean]) try {
       const response = await fetch(`/api/dtc/${clean}`)
       if (response.ok) {
         const remote = await response.json()
-        if (remote?.code && remote?.description) dtcData[clean] = { title: remote.description, summary: remote.explanation || 'Verified OBD-II code returned by the configured data provider.', urgency: 'Confirm against your exact vehicle', causes: remote.causes?.length ? remote.causes : ['Vehicle-specific diagnosis required'] }
+        if (remote?.code && remote?.description) setRemoteDiagnosis({ title: remote.description, summary: remote.explanation || 'Verified OBD-II code returned by the configured data provider.', causes: remote.causes?.length ? remote.causes : ['Vehicle-specific diagnosis required'] })
       }
     } catch { /* Local preview uses bundled fallbacks. */ }
     setResultCode(clean)
     requestAnimationFrame(() => document.getElementById('resultSection')?.scrollIntoView({ behavior: 'smooth' }))
+  }
+
+  async function updateArea() {
+    if (!/^\d{6}$/.test(pincode)) { setToast('Enter a valid 6-digit pincode'); return }
+    setUpdatingArea(true)
+    try {
+      const location = await resolvePincode(pincode)
+      setAreaPincode(pincode)
+      setAreaLabel(location.label)
+      setToast(`Area updated to ${pincode}`)
+    } catch (error) { setToast(error.message) }
+    finally { setUpdatingArea(false) }
   }
 
   function toggleVehicle(vehicle) {
@@ -125,12 +138,12 @@ function App() {
             {mode === 'code' ? 
 <form onSubmit={diagnose}><div className="field-label">
 <label htmlFor="dtcCode">Fault code</label><span>Usually looks like P0301</span></div><div className="code-input-wrap"><span className="engine-icon">⌁</span><input id="dtcCode" aria-label="Fault code" maxLength="5" value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}/><button className="primary-button" type="submit">{t.explain} <span>›</span></button></div>{codeError && <p className="field-error show">Try P0301, P0420, P0171 or P0562.</p>}<div className="vehicle-divider"><span>Add your vehicle for a better answer</span></div><div className="vehicle-fields">
-<label><span>Vehicle type</span><select><option>Car</option><option>Truck</option><option>Tractor</option></select></label>
-<label><span>Make</span><select><option>Tata</option><option>Mahindra</option><option>Maruti Suzuki</option><option>Ashok Leyland</option><option>Sonalika</option><option>John Deere</option></select></label>
-<label><span>Year</span><select><option>2024</option><option>2023</option><option>2022</option><option>2021</option></select></label></div></form> : <div className="photo-mode">
-<label className="upload-zone"><input type="file" accept="image/*" hidden onChange={() => { setMode('code'); setCode('P0301'); setToast('Photo received — demo detected P0301') }}/><span className="upload-icon">▣</span><strong>Upload a clear photo</strong><span>Dashboard or scanner display · JPG, PNG</span></label><p className="privacy-note">▣ Your photo is used only to read the code.</p></div>}
+<label><span>Vehicle type</span><select value={vehicleType} onChange={event => { const next = event.target.value; setVehicleType(next); setVehicleMake(vehicleMakes[next][0]) }}><option value="car">Car</option><option value="truck">Truck</option><option value="tractor">Tractor</option></select></label>
+<label><span>Make</span><select value={vehicleMake} onChange={event => setVehicleMake(event.target.value)}>{vehicleMakes[vehicleType].map(make => <option key={make}>{make}</option>)}</select></label>
+<label><span>Year</span><select value={vehicleYear} onChange={event => setVehicleYear(event.target.value)}>{vehicleYears.map(year => <option key={year}>{year}</option>)}</select></label></div></form> : <div className="photo-mode">
+<label className="upload-zone"><input type="file" accept="image/*" capture="environment" hidden onChange={() => { setMode('code'); setCode('P0301'); setToast('Photo received — demo detected P0301') }}/><span className="upload-icon">▣</span><strong>Take or choose a clear photo</strong><span>Camera, dashboard or scanner display · JPG, PNG</span></label><p className="privacy-note">▣ Your photo is used only to read the code.</p></div>}
           </section>
-          <aside className="location-card panel"><div className="location-heading"><span className="pin">⌖</span><div><span>Your area</span><strong>Jagtial region</strong></div></div><div className="pincode-row"><input aria-label="Pincode" inputMode="numeric" maxLength="6" value={pincode} onChange={e => setPincode(e.target.value.replace(/\D/g, ''))}/><button onClick={() => { if (/^\d{6}$/.test(pincode)) { setAreaPincode(pincode); setToast(`Area updated to ${pincode}`) } else setToast('Enter a valid 6-digit pincode') }}>Update</button></div><div className="map-art"><span className="map-dot main"></span><span className="map-dot one"></span><span className="map-dot two"></span><div className="radius-label">25 km radius</div></div><div className="local-stats"><div><strong>3</strong><span>service experts</span></div><div><strong>5</strong><span>parts stores</span></div></div><button className="text-button" onClick={() => setSection('nearby')}>View nearby help ›</button></aside>
+          <aside className="location-card panel"><div className="location-heading"><span className="pin">⌖</span><div><span>Your area</span><strong>{areaLabel}</strong></div></div><div className="pincode-row"><input aria-label="Pincode" inputMode="numeric" maxLength="6" value={pincode} onChange={e => setPincode(e.target.value.replace(/\D/g, ''))}/><button disabled={updatingArea} onClick={updateArea}>{updatingArea ? 'Finding…' : 'Update'}</button></div><div className="map-art"><span className="map-dot main"></span><span className="map-dot one"></span><span className="map-dot two"></span><div className="radius-label">25 km radius</div></div><div className="local-stats"><div><strong>{businesses.filter(item => item.type !== 'store').length}</strong><span>service experts</span></div><div><strong>{businesses.filter(item => item.type === 'store').length}</strong><span>parts stores</span></div></div><button className="text-button" onClick={() => setSection('nearby')}>View nearby help ›</button></aside>
         </div>
         <section className="result-section" id="resultSection"><div className="section-kicker">Your diagnosis</div><article className="result-card panel"><div className="result-main"><div className="result-topline"><div><span className="code-pill">{resultCode}</span><span className="status-pill caution"><i></i>Needs attention</span></div><button className={`save-button ${saved ? 'saved' : ''}`} onClick={() => { setSaved(!saved); setToast(saved ? 'Removed from garage' : 'Saved to your garage') }}>{saved ? '✓ Saved' : '▱ Save'}</button></div><h2>{diagnosis.title}</h2><p>{diagnosis.summary}</p><div className="severity"><div className="severity-head"><span>Urgency</span><strong>{diagnosis.urgency}</strong></div><div className="severity-track"><span></span><span></span><span></span><span></span><i style={{left: '51%'}}></i></div><p>Drive gently. If the warning light flashes or the vehicle loses power, stop and seek professional help.</p></div></div><div className="result-causes"><h3>Likely causes</h3><ol>{diagnosis.causes.map((cause, index) => <li key={cause}><span>{index + 1}</span><div><strong>{cause}</strong><small>{index === 0 ? 'Most common · check first' : 'Test before replacing'}</small></div></li>)}</ol><div className="confidence-note">ⓘ A fault code points to an affected system—not always one exact part. Test before replacing.</div><button className="secondary-button" onClick={() => setSection('nearby')}>Find local help ›</button></div></article></section>
       </section>}
@@ -164,10 +177,15 @@ function BusinessModal({ form, setForm, toggleVehicle, onClose, onSubmit }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [feeWaived, setFeeWaived] = useState(false)
+  const [otpCooldown, setOtpCooldown] = useState(0)
   const needsVehicles = form.type === 'mechanic' || form.type === 'electrician'
-  async function handleDetails(event) { event.preventDefault(); if (needsVehicles && form.vehicles.length === 0) return; if (!backendEnabled) { setStep('payment'); return } setBusy(true); setError(''); try { await sendPhoneOtp(form.phone); setStep('otp') } catch (err) { setError(err.message) } finally { setBusy(false) } }
+  const pincodeFree = form.pincode === '505325'
+  const effectiveFeeWaived = pincodeFree || feeWaived
+  useEffect(() => { if (!otpCooldown) return; const timer = setInterval(() => setOtpCooldown(value => Math.max(0, value - 1)), 1000); return () => clearInterval(timer) }, [otpCooldown])
+  async function handleDetails(event) { event.preventDefault(); if (needsVehicles && form.vehicles.length === 0) return; if (!backendEnabled) { setStep('payment'); return } setBusy(true); setError(''); try { await sendPhoneOtp(form.phone); setOtpCooldown(60); setStep('otp') } catch (err) { setError(err.message) } finally { setBusy(false) } }
+  async function resendOtp() { if (otpCooldown) return; setBusy(true); setError(''); try { await sendPhoneOtp(form.phone); setOtpCooldown(60) } catch (err) { setError(err.message) } finally { setBusy(false) } }
   async function handleOtp(event) { event.preventDefault(); setBusy(true); setError(''); try { const verified = await verifyPhoneOtp(form.phone, otp); setSession(verified); if (form.inviteCode.trim()) { const invite = await fetch('/api/invites/check', { method: 'POST', headers: { Authorization: `Bearer ${verified.accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ code: form.inviteCode }) }); setFeeWaived(invite.ok) } setStep('payment') } catch (err) { setError(err.message) } finally { setBusy(false) } }
-  return <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><button className="modal-close" aria-label="Close" onClick={onClose}>×</button><span className="modal-icon">DH</span>{step === 'details' ? <><h2 id="modalTitle">Join the Diaghub pilot</h2><p>Tell customers what you work on. Listings are reviewed before public launch.</p><div className={`fee-disclosure ${feeWaived ? 'waived' : ''}`}><div><span>Pilot joining fee</span><strong>{feeWaived ? 'Waived' : '₹250'}</strong></div><small>{feeWaived ? 'Friend invite accepted · no payment required' : 'One-time payment · no subscription · verification reviewed separately'}</small></div>
+  return <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><button className="modal-close" aria-label="Close" onClick={onClose}>×</button><span className="modal-icon">DH</span>{step === 'details' ? <><h2 id="modalTitle">Join the Diaghub pilot</h2><p>Tell customers what you work on. Listings are reviewed before public launch.</p><div className={`fee-disclosure ${effectiveFeeWaived ? 'waived' : ''}`}><div><span>Pilot joining fee</span><strong>{effectiveFeeWaived ? 'Waived' : '₹250'}</strong></div><small>{pincodeFree ? 'Free pilot entry for pincode 505325' : feeWaived ? 'Friend invite accepted · no payment required' : 'One-time payment · no subscription · verification reviewed separately'}</small></div>
 <form onSubmit={handleDetails}>
 <label>Business type<select aria-label="Business type" value={form.type} onChange={e => setForm({...form, type: e.target.value})}><option value="mechanic">Mechanic / workshop</option><option value="electrician">Auto electrician</option><option value="store">Auto parts store</option></select></label>{needsVehicles && <fieldset className="vehicle-choice"><legend>Vehicles you work on</legend>{['car','truck','tractor'].map(vehicle => <label key={vehicle} className={form.vehicles.includes(vehicle) ? 'selected' : ''}><input type="checkbox" checked={form.vehicles.includes(vehicle)} onChange={() => toggleVehicle(vehicle)}/><span>{vehicle === 'car' ? '🚗' : vehicle === 'truck' ? '🚚' : '🚜'} {vehicle}</span></label>)}</fieldset>}<label>Business name<input aria-label="Business name" required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="e.g. Mallesh Auto Works"/></label>
 <label>Owner name<input aria-label="Owner name" required value={form.ownerName} onChange={e => setForm({...form, ownerName:e.target.value})} placeholder="Name customers will see"/></label><div className="form-pair">
@@ -176,14 +194,14 @@ function BusinessModal({ form, setForm, toggleVehicle, onClose, onSubmit }) {
 <label>Services or brands<input aria-label="Services or brands" required value={form.services} onChange={e => setForm({...form, services:e.target.value})} placeholder={form.type === 'electrician' ? 'Battery, alternator, wiring' : 'Engine, service, Tata, Mahindra'}/></label>
 <label>Shop address<input aria-label="Shop address" required value={form.address} onChange={e => setForm({...form, address:e.target.value})} placeholder="Village, landmark or road"/></label>
 <GooglePlacePicker value={form.placeId} address={form.address} onSelect={place => setForm(current => ({...current, ...place}))}/>
-<label>Shop banner photo<input className="file-field" aria-label="Shop banner photo" type="file" accept="image/jpeg,image/png,image/webp" required={!form.bannerName} onChange={e => setForm({...form, bannerName:e.target.files?.[0]?.name || '', bannerFile:e.target.files?.[0] || null})}/><small className="field-help">Required for name-and-banner verification.</small></label>
+<label>Shop banner photo<input className="file-field" aria-label="Shop banner photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" required={!form.bannerName} onChange={e => setForm({...form, bannerName:e.target.files?.[0]?.name || '', bannerFile:e.target.files?.[0] || null})}/><small className="field-help">Take a new photo or choose one. Required for name-and-banner verification.</small></label>
 <label>Friend invite code <span className="optional">Optional</span><input aria-label="Friend invite code" value={form.inviteCode} onChange={e => setForm({...form, inviteCode:e.target.value.toUpperCase()})} placeholder="Enter invite code"/></label>
 <label className="consent-row"><input type="checkbox" checked={form.publishContact} onChange={e => setForm({...form, publishContact:e.target.checked})} required/><span>Show my owner name and contact number publicly on this listing.</span></label>
-<label className="consent-row"><input type="checkbox" checked={form.consent} onChange={e => setForm({...form, consent:e.target.checked})} required/><span>I own or manage this business and agree to pilot verification.</span></label>{error && <p className="form-error">{error}</p>}<button type="submit" disabled={busy} className="primary-button full">{busy ? 'Please wait…' : backendEnabled ? 'Verify phone & continue' : feeWaived ? 'Review free pilot entry' : 'Review & pay ₹250'}</button></form></> : step === 'otp' ? <OtpStep phone={form.phone} otp={otp} setOtp={setOtp} busy={busy} error={error} onSubmit={handleOtp} onBack={() => setStep('details')} /> : <PaymentReview form={form} fee={feeWaived ? 0 : 250} onBack={() => setStep('details')} onComplete={fee => onSubmit(fee, session)} />}</div></div>
+<label className="consent-row"><input type="checkbox" checked={form.consent} onChange={e => setForm({...form, consent:e.target.checked})} required/><span>I own or manage this business and agree to pilot verification.</span></label>{error && <p className="form-error">{error}</p>}<button type="submit" disabled={busy} className="primary-button full">{busy ? 'Please wait…' : backendEnabled ? 'Verify phone & continue' : effectiveFeeWaived ? 'Review free pilot entry' : 'Review & pay ₹250'}</button></form></> : step === 'otp' ? <OtpStep phone={form.phone} otp={otp} setOtp={setOtp} busy={busy} error={error} cooldown={otpCooldown} onResend={resendOtp} onSubmit={handleOtp} onBack={() => setStep('details')} /> : <PaymentReview form={form} fee={effectiveFeeWaived ? 0 : 250} onBack={() => setStep('details')} onComplete={fee => onSubmit(fee, session)} />}</div></div>
 }
 
-function OtpStep({ phone, otp, setOtp, busy, error, onSubmit, onBack }) {
-  return <div className="otp-step"><div className="secure-mark">✓</div><h2 id="modalTitle">Verify your phone</h2><p>We sent a one-time code to +91 {phone}.</p><form onSubmit={onSubmit}><label>6-digit OTP<input aria-label="6-digit OTP" inputMode="numeric" autoComplete="one-time-code" maxLength="6" pattern="[0-9]{6}" required value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}/></label>{error && <p className="form-error">{error}</p>}<button className="primary-button full" disabled={busy} type="submit">{busy ? 'Verifying…' : 'Verify & continue'}</button><button className="back-payment" type="button" onClick={onBack}>← Edit phone number</button></form></div>
+function OtpStep({ phone, otp, setOtp, busy, error, cooldown, onResend, onSubmit, onBack }) {
+  return <div className="otp-step"><div className="secure-mark">✓</div><h2 id="modalTitle">Verify your phone</h2><p>We sent a one-time code to +91 {phone}. SMS can take up to a minute.</p><form onSubmit={onSubmit}><label>6-digit OTP<input aria-label="6-digit OTP" inputMode="numeric" autoComplete="one-time-code" maxLength="6" pattern="[0-9]{6}" required value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}/></label>{error && <p className="form-error">{error}</p>}<button className="primary-button full" disabled={busy} type="submit">{busy ? 'Verifying…' : 'Verify & continue'}</button><button className="back-payment" disabled={busy || cooldown > 0} type="button" onClick={onResend}>{cooldown ? `Resend OTP in ${cooldown}s` : 'Resend OTP'}</button><button className="back-payment" type="button" onClick={onBack}>← Edit phone number</button></form></div>
 }
 
 function PaymentReview({ form, fee, onBack, onComplete }) {
