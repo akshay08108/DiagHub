@@ -558,6 +558,15 @@ footer p{display:none}
 .location-service-button{height:44px;border:1px solid var(--green);border-radius:9px;background:#edf5f0;color:var(--green);font-weight:800}
 .location-service-button:disabled{cursor:wait;opacity:.65}
 .location-or{text-align:center;color:var(--muted);font-size:10px;font-weight:500}
+.banner-photo-field{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700}
+.photo-picker{width:100%;display:flex;flex-direction:column;gap:8px}
+.photo-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+.photo-actions label{display:flex!important;align-items:center!important;justify-content:center!important;min-height:44px!important;border:1px solid var(--green);border-radius:9px;background:#edf5f0;color:var(--green);font-size:12px!important;font-weight:800!important;cursor:pointer;padding:8px!important}
+.photo-actions label:last-child{background:white}
+.photo-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important}
+.photo-preview{display:block;width:100%;max-height:180px;object-fit:cover;border:1px solid var(--line);border-radius:10px;background:#eef2ed}
+.photo-selected{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--green)!important;font-size:11px!important;font-weight:700}
+.upload-zone .photo-picker{max-width:360px;margin:5px auto}
 @media(max-width:650px){.nav-actions .top-join-button{display:block;height:36px;padding:0 9px;font-size:10px}.nav-actions{gap:3px}.language-select select{max-width:72px}.brand{font-size:18px}.brand-mark{width:31px;height:31px}}
 
 @media(max-width:900px){
@@ -572,4 +581,6 @@ footer p{display:none}
 @media(max-width:650px){
   .location-card{display:block}
   .location-heading strong{max-width:230px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .photo-actions{grid-template-columns:1fr}
+  .photo-actions label{min-height:48px!important}
 }
