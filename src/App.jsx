@@ -37,6 +37,7 @@ function App() {
   const [code, setCode] = useState('P0301')
   const [resultCode, setResultCode] = useState('P0301')
   const [remoteDiagnosis, setRemoteDiagnosis] = useState(null)
+  const [diagnosing, setDiagnosing] = useState(false)
   const [codeError, setCodeError] = useState(false)
   const [pincode, setPincode] = useState('505325')
   const [areaPincode, setAreaPincode] = useState('505325')
@@ -76,26 +77,30 @@ function App() {
     if (!/^[PBCU][0-9A-F]{4}$/.test(clean)) { setCodeError(true); return }
     setCodeError(false)
     setRemoteDiagnosis(null)
-    if (!dtcCatalog[clean]) try {
-      const response = await fetch(`/api/dtc/${clean}`)
-      if (response.ok) {
-        const remote = await response.json()
-        if (remote?.code && remote?.description) setRemoteDiagnosis({ title: remote.description, summary: remote.explanation || 'Verified OBD-II code returned by the configured data provider.', causes: remote.causes?.length ? remote.causes : ['Vehicle-specific diagnosis required'] })
-      }
-    } catch { /* Local preview uses bundled fallbacks. */ }
     setResultCode(clean)
     requestAnimationFrame(() => document.getElementById('resultSection')?.scrollIntoView({ behavior: 'smooth' }))
+    if (dtcCatalog[clean]) return
+    setDiagnosing(true)
+    try {
+      const response = await fetch(`/api/dtc/${clean}`)
+      const remote = await response.json().catch(() => ({}))
+      if (response.ok && remote?.description) {
+        setRemoteDiagnosis({ title: remote.description, summary: remote.explanation || 'OBD-II definition returned by CarAPI. Confirm it against the exact vehicle before replacing parts.', causes: remote.causes?.length ? remote.causes : ['Inspect the affected circuit or system', 'Check wiring, connectors and related sensors', 'Confirm with vehicle-specific diagnostic information'], source: remote.source })
+      } else setToast(remote.error || 'No verified description was returned for this code')
+    } catch { setToast('The DTC database could not be reached. Try again shortly.') }
+    finally { setDiagnosing(false) }
   }
 
   async function updateArea() {
     if (!/^\d{6}$/.test(pincode)) { setToast('Enter a valid 6-digit pincode'); return }
     setUpdatingArea(true)
+    setAreaPincode(pincode)
+    setAreaLabel(`PIN ${pincode}`)
     try {
       const location = await resolvePincode(pincode)
-      setAreaPincode(pincode)
       setAreaLabel(location.label)
       setToast(`Area updated to ${pincode}`)
-    } catch (error) { setToast(error.message) }
+    } catch { setToast(`Area changed to ${pincode}. Google address lookup is unavailable.`) }
     finally { setUpdatingArea(false) }
   }
 
@@ -146,7 +151,7 @@ function App() {
           </section>
           <aside className="location-card panel"><div className="location-heading"><span className="pin">⌖</span><div><span>Your area</span><strong>{areaLabel}</strong></div></div><div className="pincode-row"><input aria-label="Pincode" inputMode="numeric" maxLength="6" value={pincode} onChange={e => setPincode(e.target.value.replace(/\D/g, ''))}/><button disabled={updatingArea} onClick={updateArea}>{updatingArea ? 'Finding…' : 'Update'}</button></div><div className="map-art"><span className="map-dot main"></span><span className="map-dot one"></span><span className="map-dot two"></span><div className="radius-label">25 km radius</div></div><div className="local-stats"><div><strong>{businesses.filter(item => item.type !== 'store').length}</strong><span>service experts</span></div><div><strong>{businesses.filter(item => item.type === 'store').length}</strong><span>parts stores</span></div></div><button className="text-button" onClick={() => setSection('nearby')}>View nearby help ›</button></aside>
         </div>
-        <section className="result-section" id="resultSection"><div className="section-kicker">Your diagnosis</div><article className="result-card panel"><div className="result-main"><div className="result-topline"><div><span className="code-pill">{resultCode}</span><span className="status-pill caution"><i></i>Needs attention</span></div><button className={`save-button ${saved ? 'saved' : ''}`} onClick={() => { setSaved(!saved); setToast(saved ? 'Removed from garage' : 'Saved to your garage') }}>{saved ? '✓ Saved' : '▱ Save'}</button></div><h2>{diagnosis.title}</h2><p>{diagnosis.summary}</p><div className="severity"><div className="severity-head"><span>Urgency</span><strong>{diagnosis.urgency}</strong></div><div className="severity-track"><span></span><span></span><span></span><span></span><i style={{left: '51%'}}></i></div><p>Drive gently. If the warning light flashes or the vehicle loses power, stop and seek professional help.</p></div></div><div className="result-causes"><h3>Likely causes</h3><ol>{diagnosis.causes.map((cause, index) => <li key={cause}><span>{index + 1}</span><div><strong>{cause}</strong><small>{index === 0 ? 'Most common · check first' : 'Test before replacing'}</small></div></li>)}</ol><div className="confidence-note">ⓘ A fault code points to an affected system—not always one exact part. Test before replacing.</div><button className="secondary-button" onClick={() => setSection('nearby')}>Find local help ›</button></div></article></section>
+        <section className="result-section" id="resultSection"><div className="section-kicker">Your diagnosis</div><article className="result-card panel"><div className="result-main"><div className="result-topline"><div><span className="code-pill">{resultCode}</span><span className="status-pill caution"><i></i>{diagnosing ? 'Looking up code…' : 'Needs attention'}</span></div><button className={`save-button ${saved ? 'saved' : ''}`} onClick={() => { setSaved(!saved); setToast(saved ? 'Removed from garage' : 'Saved to your garage') }}>{saved ? '✓ Saved' : '▱ Save'}</button></div><h2>{diagnosing ? `Looking up ${resultCode}…` : diagnosis.title}</h2><p>{diagnosing ? 'Checking the complete CarAPI fault-code database.' : diagnosis.summary}</p><div className="severity"><div className="severity-head"><span>Urgency</span><strong>{diagnosis.urgency}</strong></div><div className="severity-track"><span></span><span></span><span></span><span></span><i style={{left: '51%'}}></i></div><p>Drive gently. If the warning light flashes or the vehicle loses power, stop and seek professional help.</p></div><a className="youtube-button" href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${resultCode} ${vehicleYear} ${vehicleMake} ${vehicleType} diagnosis repair`)}`} target="_blank" rel="noopener noreferrer">▶ Watch related explanations on YouTube</a></div><div className="result-causes"><h3>Likely causes</h3><ol>{diagnosis.causes.map((cause, index) => <li key={cause}><span>{index + 1}</span><div><strong>{cause}</strong><small>{index === 0 ? 'Most common · check first' : 'Test before replacing'}</small></div></li>)}</ol><div className="confidence-note">ⓘ A fault code points to an affected system—not always one exact part. Test before replacing. YouTube videos are third-party content; verify advice before repairs.</div><button className="secondary-button" onClick={() => setSection('nearby')}>Find local help ›</button></div></article></section>
       </section>}
 
       {section === 'nearby' && <section className="screen active">
@@ -202,7 +207,7 @@ function BusinessModal({ form, setForm, toggleVehicle, onClose, onSubmit }) {
 }
 
 function OtpStep({ phone, otp, setOtp, busy, error, cooldown, onResend, onSubmit, onBack }) {
-  return <div className="otp-step"><div className="secure-mark">✓</div><h2 id="modalTitle">Verify your phone</h2><p>We sent a one-time code to +91 {phone}. SMS can take up to a minute.</p><form onSubmit={onSubmit}><label>6-digit OTP<input aria-label="6-digit OTP" inputMode="numeric" autoComplete="one-time-code" maxLength="6" pattern="[0-9]{6}" required value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}/></label>{error && <p className="form-error">{error}</p>}<button className="primary-button full" disabled={busy} type="submit">{busy ? 'Verifying…' : 'Verify & continue'}</button><button className="back-payment" disabled={busy || cooldown > 0} type="button" onClick={onResend}>{cooldown ? `Resend OTP in ${cooldown}s` : 'Resend OTP'}</button><button className="back-payment" type="button" onClick={onBack}>← Edit phone number</button></form></div>
+  return <div className="otp-step"><div className="secure-mark">✓</div><h2 id="modalTitle">Verify your phone</h2><p>We requested a one-time code for +91 {phone}. SMS can take up to a minute.</p><div className="otp-test-note"><strong>Using a Supabase test phone?</strong><span>No SMS is sent. Enter the fixed OTP configured beside that phone number in Supabase.</span></div><form onSubmit={onSubmit}><label>6-digit OTP<input aria-label="6-digit OTP" inputMode="numeric" autoComplete="one-time-code" maxLength="6" pattern="[0-9]{6}" required value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}/></label>{error && <p className="form-error">{error}</p>}<button className="primary-button full" disabled={busy} type="submit">{busy ? 'Verifying…' : 'Verify & continue'}</button><button className="back-payment" disabled={busy || cooldown > 0} type="button" onClick={onResend}>{cooldown ? `Resend OTP in ${cooldown}s` : 'Resend OTP'}</button><button className="back-payment" type="button" onClick={onBack}>← Edit phone number</button></form></div>
 }
 
 function PaymentReview({ form, fee, onBack, onComplete }) {
