@@ -1,4 +1,4 @@
-import { requireUser } from '../lib/auth.js'
+import { requireUser } from '../_lib/auth.js'
 
 export default async function handler(request, response) {
   if (request.method !== 'POST') return response.status(405).json({ error: 'Method not allowed' })
