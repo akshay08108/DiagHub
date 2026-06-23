@@ -1,229 +1,191 @@
-import { useEffect, useMemo, useState } from 'react'
-import { backendEnabled, collectPilotPayment, fetchVerifiedBusinesses, mapBusiness, sendPhoneOtp, submitBusinessApplication, verifyPhoneOtp } from './lib/supabaseRest.js'
+import { useMemo, useState } from 'react'
 import GooglePlacePicker from './components/GooglePlacePicker.jsx'
+import { diagnosisFor, dtcCatalog } from './data/diagnostics.js'
 
-const languages = [
-  ['en', 'English'], ['hi', 'हिन्दी'], ['te', 'తెలుగు'],
-  ['ta', 'தமிழ்'], ['kn', 'ಕನ್ನಡ'], ['ml', 'മലയാളം'],
-]
+const codeExamples = ['P0301', 'P0420', 'P0171', 'P0299', 'P0401', 'P0562', 'P0700', 'U0100', 'C0035', 'B0001']
 
-const copy = {
-  en: { eyebrow: 'Clear answers. Trusted local help.', title: "That warning light doesn’t have to be a mystery.", intro: 'Enter your fault code or scan a photo. Diaghub explains what it means, how urgent it is, and who nearby can help.', diagnose: 'Diagnose', nearby: 'Nearby', garage: 'My garage', code: 'Enter code', photo: 'Scan photo', explain: 'Explain this code', local: 'Trusted help, close to home.' },
-  hi: { eyebrow: 'साफ़ जवाब। भरोसेमंद स्थानीय मदद।', title: 'वाहन की चेतावनी लाइट अब रहस्य नहीं।', intro: 'फॉल्ट कोड डालें या फोटो स्कैन करें। Diaghub उसका अर्थ, गंभीरता और नज़दीकी मदद बताता है।', diagnose: 'जाँच', nearby: 'नज़दीक', garage: 'मेरा गैराज', code: 'कोड डालें', photo: 'फोटो स्कैन', explain: 'कोड समझाएँ', local: 'भरोसेमंद मदद, आपके पास।' },
-  te: { eyebrow: 'స్పష్టమైన సమాధానాలు. నమ్మకమైన స్థానిక సహాయం.', title: 'వాహన వార్నింగ్ లైట్ ఇక రహస్యం కాదు.', intro: 'ఫాల్ట్ కోడ్ నమోదు చేయండి లేదా ఫోటో స్కాన్ చేయండి. Diaghub అర్థం, అత్యవసరత, సమీప సహాయాన్ని వివరిస్తుంది.', diagnose: 'డయాగ్నోస్', nearby: 'సమీపంలో', garage: 'నా గ్యారేజ్', code: 'కోడ్ నమోదు', photo: 'ఫోటో స్కాన్', explain: 'కోడ్ వివరించు', local: 'నమ్మకమైన సహాయం, మీకు దగ్గరలో.' },
-  ta: { eyebrow: 'தெளிவான பதில்கள். நம்பகமான உள்ளூர் உதவி.', title: 'வாகன எச்சரிக்கை விளக்கு இனி மர்மமல்ல.', intro: 'பிழைக் குறியீட்டை உள்ளிடுங்கள் அல்லது புகைப்படத்தை ஸ்கேன் செய்யுங்கள். அதன் பொருள், அவசரம் மற்றும் அருகிலுள்ள உதவியை Diaghub விளக்கும்.', diagnose: 'கண்டறிதல்', nearby: 'அருகில்', garage: 'என் வாகனங்கள்', code: 'குறியீட்டை உள்ளிடு', photo: 'படத்தை ஸ்கேன் செய்', explain: 'குறியீட்டை விளக்கு', local: 'நம்பகமான உதவி, உங்கள் அருகில்.' },
-  kn: { eyebrow: 'ಸ್ಪಷ್ಟ ಉತ್ತರಗಳು. ವಿಶ್ವಾಸಾರ್ಹ ಸ್ಥಳೀಯ ಸಹಾಯ.', title: 'ವಾಹನದ ಎಚ್ಚರಿಕೆ ದೀಪ ಇನ್ನು ರಹಸ್ಯವಲ್ಲ.', intro: 'ದೋಷ ಕೋಡ್ ನಮೂದಿಸಿ ಅಥವಾ ಫೋಟೋ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ. ಅದರ ಅರ್ಥ, ತುರ್ತು ಮತ್ತು ಹತ್ತಿರದ ಸಹಾಯವನ್ನು Diaghub ವಿವರಿಸುತ್ತದೆ.', diagnose: 'ಪರಿಶೀಲನೆ', nearby: 'ಹತ್ತಿರ', garage: 'ನನ್ನ ವಾಹನಗಳು', code: 'ಕೋಡ್ ನಮೂದಿಸಿ', photo: 'ಫೋಟೋ ಸ್ಕ್ಯಾನ್', explain: 'ಕೋಡ್ ವಿವರಿಸಿ', local: 'ವಿಶ್ವಾಸಾರ್ಹ ಸಹಾಯ, ನಿಮ್ಮ ಹತ್ತಿರ.' },
-  ml: { eyebrow: 'വ്യക്തമായ ഉത്തരങ്ങൾ. വിശ്വസനീയമായ പ്രാദേശിക സഹായം.', title: 'വാഹന മുന്നറിയിപ്പ് ലൈറ്റ് ഇനി ഒരു രഹസ്യമല്ല.', intro: 'ഫോൾട്ട് കോഡ് നൽകുക അല്ലെങ്കിൽ ചിത്രം സ്കാൻ ചെയ്യുക. അർത്ഥം, അടിയന്തരത, സമീപ സഹായം എന്നിവ Diaghub വിശദീകരിക്കും.', diagnose: 'പരിശോധന', nearby: 'സമീപത്ത്', garage: 'എന്റെ വാഹനങ്ങൾ', code: 'കോഡ് നൽകുക', photo: 'ചിത്രം സ്കാൻ ചെയ്യുക', explain: 'കോഡ് വിശദീകരിക്കുക', local: 'വിശ്വസനീയമായ സഹായം, നിങ്ങളുടെ സമീപത്ത്.' },
+const ui = {
+  en: {
+    home: 'Home', diagnose: 'AI Diagnose', nearby: 'Nearby', cars: 'Cars', emissions: 'DPF/DEF', start: 'Start diagnosis',
+    eyebrow: 'Uber + Maps + ChatGPT for vehicle diagnostics', heroTitle: 'Understand your car problem before you reach the garage.', heroText: 'Search any DTC code, explain warning lights, learn DPF/DEF issues, and find nearby mechanics or parts sellers from one clean dashboard.',
+    aiCard: 'AI diagnosis card', aiCardText: 'Enter any OBD/DTC code like P0301, P0420, P0171, P0299, U0100, C0035, or B0001.', explain: 'Explain', nearbyHelp: 'Nearby help', nearbyText: 'Mechanics, electricians and auto parts stores near your location.', findNearby: 'Find nearby',
+    diagnoseTitle: 'Search any vehicle fault code', diagnoseSub: 'Modern DTC search design with explanation, causes, checks and solutions.', codeLabel: 'DTC / OBD code', example: 'Try:', search: 'Search code', severity: 'Priority', causes: 'Expected causes', solutions: 'Possible solutions', checks: 'Quick checks', system: 'Code system', family: 'Code area', disclaimer: 'DTC meanings can vary by vehicle brand, engine, model year and market. Always confirm with a professional scanner or service manual before replacing parts.',
+    carsTitle: 'Cars information section', carsSub: 'Brand-wise information for common Indian cars and diagnostic focus areas.', emissionsTitle: 'DPF and DEF guide', emissionsSub: 'Check which vehicles usually have DPF/DEF, expected problems, solutions, and DEF oil usage estimates.', vehicle: 'Vehicle', dpf: 'DPF', def: 'DEF', usage: 'DEF usage', problems: 'Problems', solution: 'Solutions', note: 'Note: DPF/DEF fitment changes by model year, variant and market. Always verify with owner manual or VIN-based service data.'
+  },
+  hi: {
+    home: 'होम', diagnose: 'AI जांच', nearby: 'नज़दीक', cars: 'कारें', emissions: 'DPF/DEF', start: 'जांच शुरू करें',
+    eyebrow: 'वाहन डायग्नोस्टिक्स के लिए Uber + Maps + ChatGPT', heroTitle: 'गैरेज जाने से पहले कार की समस्या समझें।', heroText: 'कोई भी DTC कोड खोजें, वार्निंग लाइट समझें, DPF/DEF सीखें और नज़दीकी मैकेनिक या पार्ट्स स्टोर खोजें।',
+    aiCard: 'AI डायग्नोसिस कार्ड', aiCardText: 'P0301, P0420, P0171, P0299, U0100, C0035 या B0001 जैसे OBD/DTC कोड डालें।', explain: 'समझाएं', nearbyHelp: 'नज़दीकी मदद', nearbyText: 'आपके पास मैकेनिक, इलेक्ट्रिशियन और ऑटो पार्ट्स स्टोर।', findNearby: 'नज़दीक खोजें',
+    diagnoseTitle: 'कोई भी वाहन फॉल्ट कोड खोजें', diagnoseSub: 'कारण, जांच और समाधान के साथ आधुनिक DTC सर्च।', codeLabel: 'DTC / OBD कोड', example: 'आजमाएं:', search: 'कोड खोजें', severity: 'प्राथमिकता', causes: 'संभावित कारण', solutions: 'संभावित समाधान', checks: 'त्वरित जांच', system: 'कोड सिस्टम', family: 'कोड क्षेत्र', disclaimer: 'DTC का अर्थ ब्रांड, इंजन, मॉडल वर्ष और बाजार के अनुसार बदल सकता है। पार्ट बदलने से पहले स्कैनर या सर्विस मैनुअल से पुष्टि करें।',
+    carsTitle: 'कार जानकारी सेक्शन', carsSub: 'भारत की आम कारों के लिए ब्रांड-वाइज डायग्नोस्टिक जानकारी।', emissionsTitle: 'DPF और DEF गाइड', emissionsSub: 'किन वाहनों में DPF/DEF होता है, समस्याएं, समाधान और DEF उपयोग अनुमान।', vehicle: 'वाहन', dpf: 'DPF', def: 'DEF', usage: 'DEF उपयोग', problems: 'समस्याएं', solution: 'समाधान', note: 'नोट: DPF/DEF फिटमेंट मॉडल वर्ष, वेरिएंट और बाजार के अनुसार बदलता है। मालिक मैनुअल या VIN सर्विस डेटा से पुष्टि करें।'
+  },
+  te: {
+    home: 'హోమ్', diagnose: 'AI డయాగ్నోస్', nearby: 'దగ్గరలో', cars: 'కార్లు', emissions: 'DPF/DEF', start: 'డయాగ్నోసిస్ ప్రారంభించండి',
+    eyebrow: 'వాహన డయాగ్నోస్టిక్స్ కోసం Uber + Maps + ChatGPT', heroTitle: 'గ్యారేజ్‌కు వెళ్లే ముందు మీ కారు సమస్యను అర్థం చేసుకోండి.', heroText: 'ఏ DTC కోడ్‌నైనా వెతకండి, వార్నింగ్ లైట్లు అర్థం చేసుకోండి, DPF/DEF నేర్చుకోండి, దగ్గరలోని మెకానిక్‌లను కనుగొనండి.',
+    aiCard: 'AI డయాగ్నోసిస్ కార్డ్', aiCardText: 'P0301, P0420, P0171, P0299, U0100, C0035 లేదా B0001 వంటి OBD/DTC కోడ్‌ను నమోదు చేయండి.', explain: 'వివరించండి', nearbyHelp: 'దగ్గరలో సహాయం', nearbyText: 'మీ దగ్గర మెకానిక్‌లు, ఎలక్ట్రిషియన్‌లు మరియు ఆటో పార్ట్స్ స్టోర్లు.', findNearby: 'దగ్గరలో వెతకండి',
+    diagnoseTitle: 'ఏ వాహన ఫాల్ట్ కోడ్‌నైనా వెతకండి', diagnoseSub: 'కారణాలు, చెక్స్ మరియు పరిష్కారాలతో ఆధునిక DTC సెర్చ్.', codeLabel: 'DTC / OBD కోడ్', example: 'ప్రయత్నించండి:', search: 'కోడ్ వెతకండి', severity: 'ప్రాధాన్యత', causes: 'సంభావ్య కారణాలు', solutions: 'పరిష్కారాలు', checks: 'త్వరిత చెక్స్', system: 'కోడ్ సిస్టమ్', family: 'కోడ్ ప్రాంతం', disclaimer: 'DTC అర్థాలు బ్రాండ్, ఇంజిన్, మోడల్ ఇయర్ మరియు మార్కెట్ ఆధారంగా మారవచ్చు. భాగాలు మార్చే ముందు ప్రొఫెషనల్ స్కానర్‌తో నిర్ధారించండి.',
+    carsTitle: 'కార్ల సమాచారం', carsSub: 'సాధారణ భారతీయ కార్లకు బ్రాండ్ వారీ డయాగ్నోస్టిక్ ఫోకస్.', emissionsTitle: 'DPF మరియు DEF గైడ్', emissionsSub: 'ఏ వాహనాల్లో DPF/DEF ఉంటాయి, సమస్యలు, పరిష్కారాలు మరియు DEF వినియోగం.', vehicle: 'వాహనం', dpf: 'DPF', def: 'DEF', usage: 'DEF వినియోగం', problems: 'సమస్యలు', solution: 'పరిష్కారాలు', note: 'గమనిక: DPF/DEF ఫిట్మెంట్ మోడల్ ఇయర్, వేరియంట్ మరియు మార్కెట్ ఆధారంగా మారుతుంది.'
+  }
 }
 
-const dtcData = {
-  P0301: { title: 'Cylinder 1 misfire detected', summary: 'Cylinder 1 is not burning fuel correctly. You may notice shaking, weak acceleration, or higher fuel use.', urgency: 'Get it checked soon', causes: ['Worn spark plug', 'Faulty ignition coil', 'Fuel injector issue'] },
-  P0300: { title: 'Random or multiple cylinder misfire', summary: 'The engine is misfiring across more than one cylinder. The cause may affect ignition, fuel, or airflow.', urgency: 'Get it checked soon', causes: ['Weak ignition system', 'Vacuum or air leak', 'Fuel pressure problem'] },
-  P0420: { title: 'Catalyst efficiency below threshold', summary: 'The catalytic converter is not cleaning exhaust as effectively as expected.', urgency: 'Plan a workshop visit', causes: ['Worn catalytic converter', 'Faulty oxygen sensor', 'Exhaust leak'] },
-  P0171: { title: 'Engine running too lean — Bank 1', summary: 'The engine is receiving too much air or not enough fuel.', urgency: 'Get it checked soon', causes: ['Vacuum leak', 'Dirty airflow sensor', 'Low fuel pressure'] },
-  P0562: { title: 'System voltage too low', summary: 'The vehicle detected low electrical voltage. Starting trouble or dim lights may appear.', urgency: 'Check before your next trip', causes: ['Weak battery', 'Alternator problem', 'Loose or corroded cable'] },
+const carSections = [
+  { brand: 'Maruti Suzuki', models: 'Swift, Baleno, Brezza, Dzire, Ertiga, Fronx', focus: 'Petrol, CNG, mild-hybrid diagnosis, mileage complaints, sensor faults, OBD-II codes.' },
+  { brand: 'Hyundai', models: 'i20, Venue, Creta, Verna, Alcazar', focus: 'Petrol, turbo-petrol and diesel diagnostics, ABS, transmission, DPF checks on diesel models.' },
+  { brand: 'Tata Motors', models: 'Punch, Nexon, Altroz, Harrier, Safari, Tiago EV', focus: 'Petrol, diesel, CNG and EV health, battery warnings, diesel DPF/EGR diagnosis.' },
+  { brand: 'Mahindra', models: 'Thar, Scorpio-N, XUV700, Bolero, XUV300', focus: 'Diesel-focused diagnostics, DEF/AdBlue, DPF regeneration, 4x4 and turbo issues.' },
+  { brand: 'Toyota', models: 'Fortuner, Innova Crysta, Hyryder, Glanza', focus: 'Long-run maintenance, hybrid checks, diesel DPF/DEF warnings where fitted.' },
+  { brand: 'Kia / Honda / MG / Skoda', models: 'Seltos, Sonet, City, Hector, Slavia, Kushaq', focus: 'General diagnostics, diesel emission systems, turbo, DCT/CVT and sensor issues.' },
+]
+
+const emissionGuide = [
+  { car: 'Mahindra XUV700 diesel', dpf: 'Yes', def: 'Yes on many BS6 diesel variants', usage: 'Around 1–3 L per 1,000 km depending on load and driving style.', problems: 'DPF clogging in city use, DEF low warning, NOx/DEF sensor faults.', solution: 'Use proper AdBlue/DEF, complete highway regeneration drives, scan before replacing sensors.' },
+  { car: 'Mahindra Scorpio-N / Thar diesel', dpf: 'Yes', def: 'Yes on many BS6 diesel variants', usage: 'Around 1–3 L per 1,000 km; heavy driving can use more.', problems: 'Soot build-up, limp mode, regeneration interruption.', solution: 'Avoid only short trips, refill DEF on time, check DPF pressure readings.' },
+  { car: 'Tata Harrier / Safari diesel', dpf: 'Yes', def: 'Usually no separate DEF tank on many Indian variants; check model year.', usage: 'Not applicable if no DEF tank is fitted.', problems: 'DPF full warning, EGR soot, pressure sensor faults.', solution: 'Complete regeneration cycle, inspect EGR and DPF sensor pipes, use correct oil grade.' },
+  { car: 'Hyundai Creta / Kia Seltos diesel', dpf: 'Yes on BS6 diesel', def: 'Usually no DEF tank in many Indian passenger variants.', usage: 'Not applicable if no DEF tank is fitted.', problems: 'DPF warning after slow city driving, turbo/airflow codes.', solution: 'Steady-speed drive for regen, check MAF/boost leaks, avoid interrupting regen.' },
+  { car: 'Toyota Fortuner / Innova diesel', dpf: 'Yes on BS6 diesel', def: 'Some generations/variants use DEF/urea systems.', usage: 'Commonly around 1–2 L per 1,000 km where DEF is fitted.', problems: 'DPF regeneration warning, DEF countdown, exhaust sensor faults.', solution: 'Use ISO 22241 DEF, refill before empty, perform scanner-based DPF health check.' },
+  { car: 'Petrol / CNG cars', dpf: 'No', def: 'No', usage: 'Not applicable.', problems: 'Oxygen sensor faults, catalytic converter efficiency codes, misfires.', solution: 'Do not confuse catalytic converter with DPF; fix misfires quickly to protect catalyst.' },
+]
+
+const nearbyDemo = [
+  { name: 'Mallesh Auto Works', type: 'Mechanic', distance: '4.2 km', services: 'Engine, diesel, general service' },
+  { name: 'Sri Sai Auto Electricals', type: 'Electrician', distance: '6.8 km', services: 'Battery, wiring, alternator, lights' },
+  { name: 'Akshay Auto Parts', type: 'Parts store', distance: '7.8 km', services: 'Maruti, Tata, Mahindra, Bosch parts' },
+]
+
+function normalizeCode(value) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)
 }
 
-const seedBusinesses = [
-  { id: 'm1', type: 'mechanic', name: 'Mallesh Auto Works', ownerName: 'Mallesh (demo)', phone: '00000 00000', publishContact: true, services: 'Engine · Diesel · General service', vehicles: ['car', 'truck', 'tractor'], distance: 4.2, rating: 4.8, reviews: 26, initials: 'MK', verified: true },
-  { id: 's1', type: 'store', name: 'Akshay Auto Parts', ownerName: 'Akshay (demo)', phone: '00000 00000', publishContact: true, services: 'Tata · Maruti · Mahindra · Bosch', vehicles: ['car', 'truck', 'tractor'], distance: 7.8, rating: 4.6, reviews: 41, initials: 'AP', verified: true },
-  { id: 'e1', type: 'electrician', name: 'Sri Sai Auto Electricals', ownerName: 'Sai (demo)', phone: '00000 00000', publishContact: true, services: 'Battery · Alternator · Wiring · Lights', vehicles: ['car', 'truck'], distance: 12.1, rating: 4.7, reviews: 18, initials: 'SS', verified: true },
-]
+function codeSystem(code) {
+  const first = code[0]
+  const systems = { P: 'Powertrain / engine & transmission', B: 'Body / airbags & comfort', C: 'Chassis / ABS, steering & suspension', U: 'Network / module communication' }
+  return systems[first] || 'Unknown OBD system'
+}
 
+function codeFamily(code) {
+  if (!/^[PBCU][0-9A-F]{4}$/.test(code)) return 'Enter a standard 5-character code like P0301 or U0100'
+  const group = code.slice(0, 3)
+  if (group.startsWith('P00') || group.startsWith('P01')) return 'Fuel, air metering and emissions'
+  if (group.startsWith('P02')) return 'Injector, turbo or fuel system'
+  if (group.startsWith('P03')) return 'Ignition system or misfire'
+  if (group.startsWith('P04')) return 'Auxiliary emission control / EGR / catalyst'
+  if (group.startsWith('P05')) return 'Vehicle speed, idle control and electrical inputs'
+  if (group.startsWith('P06')) return 'ECU / control module / computer output'
+  if (group.startsWith('P07')) return 'Transmission control'
+  if (code[0] === 'U') return 'CAN network / module communication'
+  if (code[0] === 'C') return 'Chassis, ABS, steering or suspension'
+  if (code[0] === 'B') return 'Body electronics, airbag or cabin systems'
+  return 'Manufacturer-specific area'
+}
 
-const carInfo = [
-  { name: 'Maruti Suzuki', models: 'Swift, Baleno, Brezza, Ertiga, Dzire', fuels: 'Petrol, CNG, mild hybrid', note: 'Great for budget diagnosis, service reminders, sensors and common OBD-II codes.' },
-  { name: 'Hyundai', models: 'i20, Venue, Creta, Verna, Alcazar', fuels: 'Petrol, Diesel, Turbo petrol', note: 'Useful for engine, ABS, transmission, turbo and emission warning diagnosis.' },
-  { name: 'Tata Motors', models: 'Nexon, Punch, Altroz, Harrier, Safari', fuels: 'Petrol, Diesel, EV, CNG', note: 'Covers regular cars plus EV health, diesel DPF checks and service alerts.' },
-  { name: 'Mahindra', models: 'Scorpio-N, XUV700, Thar, Bolero, XUV300', fuels: 'Diesel, Petrol', note: 'Strong focus on diesel diagnostics, DEF/AdBlue, DPF regeneration and 4x4 issues.' },
-  { name: 'Toyota', models: 'Innova Crysta, Hyryder, Fortuner, Glanza', fuels: 'Diesel, Petrol, Hybrid, CNG', note: 'Ideal for hybrid checks, diesel emission systems and long-run maintenance.' },
-  { name: 'Honda / Kia / MG / Skoda', models: 'City, Seltos, Hector, Slavia and more', fuels: 'Petrol, Diesel, Hybrid where available', note: 'Expandable brand database for all cars, symptoms, fault codes and service tips.' },
-]
-
-const emissionSystems = [
-  { model: 'Mahindra XUV700 diesel', dpf: 'Yes', def: 'Yes on BS6 diesel variants', defUse: 'Usually around 1–3 litres per 1,000 km depending on load and driving style.', problems: ['DPF clogging in short city drives', 'Forced regeneration needed', 'DEF low/poor quality warning'], solutions: ['Take a 20–30 minute highway run when safe', 'Use correct AdBlue/DEF only', 'Scan before replacing sensors'] },
-  { model: 'Mahindra Scorpio-N / Thar diesel', dpf: 'Yes', def: 'Yes on many BS6 diesel variants', defUse: 'Approx. 1–3 litres per 1,000 km; heavy use can consume more.', problems: ['DPF soot accumulation', 'Limp mode during emission faults', 'NOx/DEF sensor warnings'], solutions: ['Do regular regeneration-friendly drives', 'Check DEF tank level and quality', 'Clean/diagnose DPF before replacement'] },
-  { model: 'Tata Harrier / Safari diesel', dpf: 'Yes', def: 'Usually no separate DEF tank on many versions; depends on variant/year', defUse: 'If no DEF tank, DEF consumption is not applicable.', problems: ['DPF full warning in city usage', 'EGR/soot related power loss', 'Exhaust sensor faults'], solutions: ['Avoid repeated very short trips', 'Complete regeneration cycle', 'Inspect EGR, pressure pipes and sensors'] },
-  { model: 'Hyundai Creta / Kia Seltos diesel', dpf: 'Yes on BS6 diesel', def: 'Usually no DEF tank in many Indian passenger variants', defUse: 'Not applicable if the car has no DEF tank.', problems: ['DPF warning after low-speed use', 'Turbo/airflow related codes', 'Regeneration interruption'], solutions: ['Drive at steady speed to allow regen', 'Check intake, MAF and DPF sensors', 'Use correct engine oil grade'] },
-  { model: 'Toyota Fortuner / Innova Crysta diesel', dpf: 'Yes on BS6 diesel', def: 'Some BS6 diesel systems use urea/DEF depending on generation', defUse: 'Commonly around 1–2 litres per 1,000 km where DEF is fitted.', problems: ['DPF regeneration warnings', 'AdBlue/DEF warning countdown', 'DPF pressure sensor issues'], solutions: ['Refill DEF before it runs empty', 'Use ISO 22241 DEF/AdBlue', 'Do scanner-based DPF health check'] },
-  { model: 'Petrol / CNG cars', dpf: 'No DPF', def: 'No DEF', defUse: 'Not applicable.', problems: ['Catalytic converter faults', 'Oxygen sensor codes', 'Misfire codes'], solutions: ['Check ignition, fuel and O2 sensors', 'Do not confuse catalytic converter with DPF', 'Repair misfire quickly to protect catalyst'] },
-]
-
-const blankForm = { type: 'mechanic', name: '', ownerName: '', phone: '', pincode: '505325', services: '', address: '', bannerName: '', bannerFile: null, placeId: '', latitude: null, longitude: null, vehicles: ['car'], inviteCode: '', publishContact: false, consent: false }
-
-function Brand() {
-  return <a className="brand" href="#" aria-label="Diaghub home"><span className="brand-mark"><svg viewBox="0 0 24 24"><path d="M7 7h10l3 4v6a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2H9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6l3-4Z"/><path d="m8 11 1.3-2h5.4l1.3 2M7 14h2m6 0h2"/></svg></span><span>Diag<span>hub</span></span></a>
+function enhancedDiagnosis(code, language) {
+  const clean = normalizeCode(code)
+  const base = diagnosisFor(clean, language)
+  const known = Boolean(dtcCatalog[clean])
+  const valid = /^[PBCU][0-9A-F]{4}$/.test(clean)
+  const quickChecks = known
+    ? ['Confirm the code after clearing it once', 'Check wiring/connectors before replacing parts', 'Compare live scanner data with symptoms']
+    : valid
+      ? ['Check if the code is generic or manufacturer-specific', 'Search the same code with your car brand and engine', 'Scan live data and freeze-frame data', 'Do not replace expensive parts only from one code']
+      : ['Enter a valid code format like P0301, P0420, U0100, C0035 or B0001']
+  return {
+    code: clean || 'DTC',
+    ...base,
+    level: known ? 'Known code' : valid ? 'Generic guidance' : 'Invalid format',
+    system: codeSystem(clean),
+    family: codeFamily(clean),
+    quickChecks,
+  }
 }
 
 function App() {
-  const [section, setSection] = useState('diagnose')
+  const [active, setActive] = useState('home')
   const [language, setLanguage] = useState('en')
-  const [mode, setMode] = useState('code')
   const [code, setCode] = useState('P0301')
-  const [resultCode, setResultCode] = useState('P0301')
-  const [codeError, setCodeError] = useState(false)
-  const [pincode, setPincode] = useState('505325')
-  const [areaPincode, setAreaPincode] = useState('505325')
-  const [radius, setRadius] = useState(25)
-  const [filter, setFilter] = useState('all')
-  const [vehicleFilter, setVehicleFilter] = useState('all')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [form, setForm] = useState(blankForm)
-  const [toast, setToast] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [pilotBusinesses, setPilotBusinesses] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('diaghubReactBusinesses') || '[]') } catch { return [] }
-  })
-  const [remoteBusinesses, setRemoteBusinesses] = useState([])
-  const t = copy[language] || copy.en
-  const diagnosis = dtcData[resultCode] || { title: `${resultCode} — description coming to the full database`, summary: 'This is a valid DTC format, but its verified description is not yet included in the pilot library. Do not replace parts based only on the code.', urgency: 'Confirm with a professional scanner', causes: ['Manufacturer-specific definition', 'Vehicle details required', 'Further diagnosis required'] }
+  const [place, setPlace] = useState({ placeId: '', address: '' })
+  const t = ui[language] || ui.en
+  const result = useMemo(() => enhancedDiagnosis(code, language), [code, language])
+  const nav = [['home', t.home], ['diagnose', t.diagnose], ['nearby', t.nearby], ['cars', t.cars], ['emissions', t.emissions]]
 
-  useEffect(() => { localStorage.setItem('diaghubReactBusinesses', JSON.stringify(pilotBusinesses)) }, [pilotBusinesses])
-  useEffect(() => { if (backendEnabled) fetchVerifiedBusinesses().then(rows => setRemoteBusinesses(rows.map(mapBusiness))).catch(() => setToast('Could not load live businesses')) }, [])
-  useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 2400); return () => clearTimeout(timer) }, [toast])
-
-  const businesses = useMemo(() => [...(backendEnabled ? remoteBusinesses : seedBusinesses), ...pilotBusinesses.filter(item => item.verified)].filter(item => {
-    const typeMatch = filter === 'all' || item.type === filter
-    const vehicleMatch = vehicleFilter === 'all' || item.vehicles.includes(vehicleFilter)
-    return typeMatch && vehicleMatch && item.distance <= radius
-  }), [pilotBusinesses, remoteBusinesses, filter, vehicleFilter, radius])
-
-  async function diagnose(event) {
-    event.preventDefault()
-    const clean = code.toUpperCase().trim()
-    if (!/^[PBCU][0-9A-F]{4}$/.test(clean)) { setCodeError(true); return }
-    setCodeError(false)
-    try {
-      const response = await fetch(`/api/dtc/${clean}`)
-      if (response.ok) {
-        const remote = await response.json()
-        if (remote?.code && remote?.description) dtcData[clean] = { title: remote.description, summary: remote.explanation || 'Verified OBD-II code returned by the configured data provider.', urgency: 'Confirm against your exact vehicle', causes: remote.causes?.length ? remote.causes : ['Vehicle-specific diagnosis required'] }
-      }
-    } catch { /* Local preview uses bundled fallbacks. */ }
-    setResultCode(clean)
-    requestAnimationFrame(() => document.getElementById('resultSection')?.scrollIntoView({ behavior: 'smooth' }))
+  function searchNow() {
+    setCode(normalizeCode(code))
+    setActive('diagnose')
   }
 
-  function toggleVehicle(vehicle) {
-    setForm(current => ({ ...current, vehicles: current.vehicles.includes(vehicle) ? current.vehicles.filter(v => v !== vehicle) : [...current.vehicles, vehicle] }))
-  }
-
-  async function submitBusiness(joiningFee = 250, session = null) {
-    if ((form.type === 'mechanic' || form.type === 'electrician') && form.vehicles.length === 0) { setToast('Choose at least one vehicle type'); return }
-    const initials = form.name.split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase()
-    if (backendEnabled && session) {
-      try {
-        const application = await submitBusinessApplication(form, session, joiningFee)
-        if (joiningFee > 0) await collectPilotPayment(application, form, session)
-        setForm(blankForm); setModalOpen(false); setSection('nearby'); setToast(`${form.name} was submitted for verification`)
-      } catch (error) { setToast(error.message) }
-      return
-    }
-    const listing = { ...form, bannerFile: null, id: crypto.randomUUID(), initials, distance: form.pincode === areaPincode ? 1.2 : 8.5, rating: null, reviews: 0, verified: false, status: 'pending_review', paymentStatus: joiningFee === 0 ? 'invite-waived' : 'demo-paid', joiningFee }
-    setPilotBusinesses(current => [...current, listing])
-    setAreaPincode(form.pincode); setPincode(form.pincode); setForm(blankForm); setModalOpen(false); setSection('nearby')
-    setToast(`${listing.name} was submitted for banner and identity review`)
-  }
-
-  return <div className="page-shell">
-    <header className="nav">
-      <Brand />
-      <nav className="nav-links" aria-label="Main navigation">
-        {[['diagnose', 'Diagnose'], ['cars', 'Cars'], ['emissions', 'DPF/DEF'], ['nearby', t.nearby], ['garage', t.garage]].map(([key, label]) => <button key={key} className={`nav-link ${section === key ? 'active' : ''}`} onClick={() => setSection(key)}>{label}</button>)}
-      </nav>
-      <div className="nav-actions">
-<label className="language-select" aria-label="Language"><span>◎</span><select value={language} onChange={e => setLanguage(e.target.value)}>{languages.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><button className="ghost-button top-join-button" onClick={() => setModalOpen(true)}>Join pilot · ₹250</button></div>
-    </header>
-
-    <main>
-      {section === 'diagnose' && <section className="screen active">
-        <div className="hero hero-pro"><div className="eyebrow"><span></span><span>Uber speed · Maps nearby · ChatGPT-style answers</span></div><h1>DiagHub: AI vehicle diagnosis for every driver.</h1><p>Search a DTC code, describe a symptom, learn about your car, understand DPF/DEF problems, and connect with nearby mechanics from one clean dashboard.</p><div className="hero-actions"><button className="primary-button hero-cta" onClick={() => document.getElementById('dtcCode')?.focus()}>Start diagnosis ›</button><button className="secondary-button hero-secondary" onClick={() => setSection('nearby')}>Find nearby mechanics</button></div><div className="vehicle-scope"><span>Built for</span><b>Cars</b><b>Trucks</b><b>Tractors</b><b>Diesel DPF</b><b>DEF / AdBlue</b></div></div>
-        <div className="diagnostic-grid">
-          <section className="search-card panel">
-            <div className="mode-tabs" role="tablist"><button className={`mode-tab ${mode === 'code' ? 'active' : ''}`} onClick={() => setMode('code')}>▤ <span>{t.code}</span></button><button className={`mode-tab ${mode === 'photo' ? 'active' : ''}`} onClick={() => setMode('photo')}>▣ <span>{t.photo}</span></button></div>
-            {mode === 'code' ? 
-<form onSubmit={diagnose}><div className="field-label">
-<label htmlFor="dtcCode">Fault code</label><span>Usually looks like P0301</span></div><div className="code-input-wrap"><span className="engine-icon">⌁</span><input id="dtcCode" aria-label="Fault code" maxLength="5" value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}/><button className="primary-button" type="submit">{t.explain} <span>›</span></button></div>{codeError && <p className="field-error show">Try P0301, P0420, P0171 or P0562.</p>}<div className="vehicle-divider"><span>Add your vehicle for a better answer</span></div><div className="vehicle-fields">
-<label><span>Vehicle type</span><select><option>Car</option><option>Truck</option><option>Tractor</option></select></label>
-<label><span>Make</span><select><option>Tata</option><option>Mahindra</option><option>Maruti Suzuki</option><option>Ashok Leyland</option><option>Sonalika</option><option>John Deere</option></select></label>
-<label><span>Year</span><select><option>2024</option><option>2023</option><option>2022</option><option>2021</option></select></label></div></form> : <div className="photo-mode">
-<label className="upload-zone"><input type="file" accept="image/*" hidden onChange={() => { setMode('code'); setCode('P0301'); setToast('Photo received — demo detected P0301') }}/><span className="upload-icon">▣</span><strong>Upload a clear photo</strong><span>Dashboard or scanner display · JPG, PNG</span></label><p className="privacy-note">▣ Your photo is used only to read the code.</p></div>}
-          </section>
-          <aside className="location-card panel"><div className="location-heading"><span className="pin">⌖</span><div><span>Your area</span><strong>Jagtial region</strong></div></div><div className="pincode-row"><input aria-label="Pincode" inputMode="numeric" maxLength="6" value={pincode} onChange={e => setPincode(e.target.value.replace(/\D/g, ''))}/><button onClick={() => { if (/^\d{6}$/.test(pincode)) { setAreaPincode(pincode); setToast(`Area updated to ${pincode}`) } else setToast('Enter a valid 6-digit pincode') }}>Update</button></div><div className="map-art"><span className="map-dot main"></span><span className="map-dot one"></span><span className="map-dot two"></span><div className="radius-label">25 km radius</div></div><div className="local-stats"><div><strong>3</strong><span>service experts</span></div><div><strong>5</strong><span>parts stores</span></div></div><button className="text-button" onClick={() => setSection('nearby')}>View nearby help ›</button></aside>
+  return (
+    <div className="page-shell">
+      <header className="nav">
+        <a className="brand" href="#home" onClick={() => setActive('home')}><span className="brand-mark">D</span><span>Diag<span>hub</span></span></a>
+        <div className="nav-links">{nav.map(([id, label]) => <button key={id} className={`nav-link ${active === id ? 'active' : ''}`} onClick={() => setActive(id)}>{label}</button>)}</div>
+        <div className="nav-actions">
+          <select className="language-select" value={language} onChange={e => setLanguage(e.target.value)} aria-label="Language">
+            <option value="en">English</option><option value="hi">हिन्दी</option><option value="te">తెలుగు</option>
+          </select>
+          <button className="ghost-button" onClick={() => setActive('diagnose')}>{t.start}</button>
         </div>
-        <section className="result-section" id="resultSection"><div className="section-kicker">Your diagnosis</div><article className="result-card panel"><div className="result-main"><div className="result-topline"><div><span className="code-pill">{resultCode}</span><span className="status-pill caution"><i></i>Needs attention</span></div><button className={`save-button ${saved ? 'saved' : ''}`} onClick={() => { setSaved(!saved); setToast(saved ? 'Removed from garage' : 'Saved to your garage') }}>{saved ? '✓ Saved' : '▱ Save'}</button></div><h2>{diagnosis.title}</h2><p>{diagnosis.summary}</p><div className="severity"><div className="severity-head"><span>Urgency</span><strong>{diagnosis.urgency}</strong></div><div className="severity-track"><span></span><span></span><span></span><span></span><i style={{left: '51%'}}></i></div><p>Drive gently. If the warning light flashes or the vehicle loses power, stop and seek professional help.</p></div></div><div className="result-causes"><h3>Likely causes</h3><ol>{diagnosis.causes.map((cause, index) => <li key={cause}><span>{index + 1}</span><div><strong>{cause}</strong><small>{index === 0 ? 'Most common · check first' : 'Test before replacing'}</small></div></li>)}</ol><div className="confidence-note">ⓘ A fault code points to an affected system—not always one exact part. Test before replacing.</div><button className="secondary-button" onClick={() => setSection('nearby')}>Find local help ›</button></div></article></section>
-      </section>}
+      </header>
 
+      <main>
+        <section id="home" className={`screen ${active === 'home' ? 'active' : ''}`}>
+          <div className="hero">
+            <div className="eyebrow"><span></span>{t.eyebrow}</div>
+            <h1>{t.heroTitle}</h1><p>{t.heroText}</p>
+          </div>
+          <div className="diagnostic-grid">
+            <div className="panel search-card code-search-pro">
+              <h2>{t.aiCard}</h2><p>{t.aiCardText}</p>
+              <div className="code-input-wrap pro-search"><div className="engine-icon">⚙️</div><input value={code} onChange={e => setCode(normalizeCode(e.target.value))} placeholder="P0301" /><button className="primary-button" onClick={searchNow}>{t.explain}</button></div>
+              <div className="example-row"><span>{t.example}</span>{codeExamples.slice(0, 5).map(item => <button key={item} onClick={() => { setCode(item); setActive('diagnose') }}>{item}</button>)}</div>
+            </div>
+            <div className="panel location-card"><h2>{t.nearbyHelp}</h2><p>{t.nearbyText}</p><button className="primary-button" onClick={() => setActive('nearby')}>{t.findNearby}</button></div>
+          </div>
+        </section>
 
-      {section === 'cars' && <section className="screen active">
-        <div className="inner-hero"><div><span className="section-kicker">All cars database</span><h1>Car information in one separate section.</h1><p>Brand-wise basics for common Indian cars. This section is ready to expand into model pages with engine, fuel, sensors, common faults and service schedules.</p></div></div>
-        <div className="car-info-grid">{carInfo.map(car => <article className="info-card panel" key={car.name}><div className="info-icon">🚘</div><span>{car.fuels}</span><h3>{car.name}</h3><p><strong>Popular models:</strong> {car.models}</p><p>{car.note}</p><button className="contact-button" onClick={() => { setCode('P0301'); setSection('diagnose') }}>Diagnose this brand</button></article>)}</div>
-        <div className="knowledge-banner panel"><div><span className="section-kicker">Coming database flow</span><h2>Every car can have a page with variants, fuel type, DPF/DEF status, common fault codes, symptoms and repair checklist.</h2><p>For exact results, the app should later ask: make, model, year, fuel type, engine variant and BS4/BS6 emission level.</p></div></div>
-      </section>}
+        <section id="diagnose" className={`screen ${active === 'diagnose' ? 'active' : ''}`}>
+          <div className="inner-hero"><h1>{t.diagnoseTitle}</h1><p>{t.diagnoseSub}</p></div>
+          <div className="panel dtc-search-panel">
+            <div className="field-label"><label>{t.codeLabel}</label><span>{t.example} P0301 / U0100 / C0035</span></div>
+            <div className="code-input-wrap pro-search large"><div className="engine-icon">🔍</div><input value={code} onChange={e => setCode(normalizeCode(e.target.value))} placeholder="Enter code" /><button className="primary-button" onClick={searchNow}>{t.search}</button></div>
+            <div className="example-row">{codeExamples.map(item => <button key={item} onClick={() => setCode(item)} className={result.code === item ? 'active' : ''}>{item}</button>)}</div>
+          </div>
+          <div className="result-section">
+            <div className="result-card panel upgraded-result-card">
+              <div className="result-main">
+                <div className="result-topline"><span className="code-pill">{result.code}</span><span className="status-pill"><i></i>{result.level}</span></div>
+                <h2>{result.title}</h2><p>{result.summary}</p>
+                <div className="meta-grid"><div><small>{t.system}</small><strong>{result.system}</strong></div><div><small>{t.family}</small><strong>{result.family}</strong></div><div><small>{t.severity}</small><strong>{result.urgency}</strong></div></div>
+              </div>
+              <div className="result-causes">
+                <h3>{t.causes}</h3><ul>{result.causes.map(item => <li key={item}>{item}</li>)}</ul>
+                <h3>{t.checks}</h3><ul>{result.quickChecks.map(item => <li key={item}>{item}</li>)}</ul>
+                <h3>{t.solutions}</h3><ul><li>Start with low-cost inspection: battery, fuses, wiring, connectors and fluid levels.</li><li>Use freeze-frame and live data to confirm the real failed part.</li><li>After repair, clear the code and drive-test to confirm it does not return.</li></ul>
+              </div>
+            </div>
+          </div>
+          <p className="privacy-note">{t.disclaimer}</p>
+        </section>
 
-      {section === 'emissions' && <section className="screen active">
-        <div className="inner-hero"><div><span className="section-kicker">DPF & DEF guide</span><h1>Know which cars have DPF or DEF.</h1><p>DPF traps soot in diesel exhaust. DEF/AdBlue is used in SCR systems to reduce NOx emissions. Exact fitment changes by model year and variant, so users should confirm with VIN, owner manual or workshop scan.</p></div></div>
-        <div className="emission-grid">{emissionSystems.map(item => <article className="emission-card panel" key={item.model}><div className="emission-head"><div><span>Model / category</span><h3>{item.model}</h3></div><div className="emission-pills"><b>DPF: {item.dpf}</b><b>DEF: {item.def}</b></div></div><p className="def-use"><strong>Expected DEF usage:</strong> {item.defUse}</p><div className="emission-columns"><div><h4>Expected problems</h4><ul>{item.problems.map(x => <li key={x}>{x}</li>)}</ul></div><div><h4>Solutions</h4><ul>{item.solutions.map(x => <li key={x}>{x}</li>)}</ul></div></div></article>)}</div>
-        <div className="safety-note panel"><strong>Important:</strong> Do not delete DPF/DEF systems. The safe approach is scanner diagnosis, correct oil, correct DEF quality, regeneration support and sensor/pipe checks before replacing costly parts.</div>
-      </section>}
+        <section id="nearby" className={`screen ${active === 'nearby' ? 'active' : ''}`}>
+          <div className="inner-hero"><h1>{t.nearbyHelp}</h1><p>{t.nearbyText}</p></div>
+          <div className="panel search-card"><GooglePlacePicker value={place.placeId} address={place.address} onSelect={setPlace} /></div>
+          <div className="business-grid">{nearbyDemo.map(item => <article className="panel business-card" key={item.name}><h3>{item.name}</h3><strong>{item.type} · {item.distance}</strong><p>{item.services}</p><button className="ghost-button">View details</button></article>)}</div>
+        </section>
 
-      {section === 'nearby' && <section className="screen active">
-        <div className="inner-hero"><div><span className="section-kicker">Local help</span><h1>{t.local}</h1><p>Mechanics, electricians and parts sellers serving the {areaPincode} area.</p></div><div className="area-control">Within <select aria-label="Search radius" value={radius} onChange={e => setRadius(Number(e.target.value))}><option value="10">10 km</option><option value="25">25 km</option><option value="50">50 km</option></select> of <strong>{areaPincode}</strong></div></div>
-        <div className="filter-stack"><div className="filter-row" aria-label="Business filters">{[['all','All nearby'],['mechanic','Mechanics'],['electrician','Electricians'],['store','Parts stores']].map(([key,label]) => <button key={key} className={`chip ${filter === key ? 'active' : ''}`} onClick={() => setFilter(key)}>{label}</button>)}</div><div className="filter-row vehicle-filter" aria-label="Vehicle filters">{[['all','All vehicles'],['car','Car'],['truck','Truck'],['tractor','Tractor']].map(([key,label]) => <button key={key} className={`chip ${vehicleFilter === key ? 'active' : ''}`} onClick={() => setVehicleFilter(key)}>{label}</button>)}</div></div>
-        <div className="directory-summary"><div><strong>{businesses.length} local {businesses.length === 1 ? 'business' : 'businesses'}</strong><span>Matched by business type, vehicle and service radius.</span></div></div>
-        <div className="business-grid">{businesses.map(item => <BusinessCard key={item.id} item={item} onRemove={() => { setPilotBusinesses(list => list.filter(b => b.id !== item.id)); setToast('Pilot listing removed') }} onContact={() => setToast('Request flow comes with the secure backend')} />)}</div>
-        {businesses.length === 0 && <div className="empty-directory"><strong>No exact match in this radius yet.</strong><p>Try a wider radius. Businesses can join from the button at the top of the page.</p></div>}
-      </section>}
+        <section id="cars" className={`screen ${active === 'cars' ? 'active' : ''}`}>
+          <div className="inner-hero"><h1>{t.carsTitle}</h1><p>{t.carsSub}</p></div>
+          <div className="business-grid">{carSections.map(car => <article className="panel business-card" key={car.brand}><h3>{car.brand}</h3><p><b>Popular models:</b> {car.models}</p><p>{car.focus}</p></article>)}</div>
+        </section>
 
-      {section === 'garage' && <section className="screen active"><div className="inner-hero"><div><span className="section-kicker">My garage</span><h1>Your vehicles and diagnosis history.</h1><p>Cars, trucks and tractors—one maintenance history.</p></div></div><div className="garage-layout"><article className="vehicle-card"><div className="car-art">CAR</div><div><span>Primary vehicle</span><h3>2024 Tata Nexon</h3><p>Car · Petrol · Manual</p></div></article><article className="history-card"><div className="history-head"><h3>Recent diagnosis</h3><span>{saved ? '1 saved' : 'Nothing saved'}</span></div>{saved && <div className="history-item"><span className="history-code">{resultCode}</span><div><strong>{diagnosis.title}</strong><small>Today · Needs attention</small></div></div>}</article></div></section>}
-    </main>
+        <section id="emissions" className={`screen ${active === 'emissions' ? 'active' : ''}`}>
+          <div className="inner-hero"><h1>{t.emissionsTitle}</h1><p>{t.emissionsSub}</p></div>
+          <div className="emission-table panel"><table><thead><tr><th>{t.vehicle}</th><th>{t.dpf}</th><th>{t.def}</th><th>{t.usage}</th><th>{t.problems}</th><th>{t.solution}</th></tr></thead><tbody>{emissionGuide.map(row => <tr key={row.car}><td>{row.car}</td><td>{row.dpf}</td><td>{row.def}</td><td>{row.usage}</td><td>{row.problems}</td><td>{row.solution}</td></tr>)}</tbody></table></div>
+          <p className="privacy-note">{t.note}</p>
+        </section>
+      </main>
 
-    <nav className="mobile-bottom-nav" aria-label="Mobile navigation">{[['diagnose','⌁','Diagnose'], ['cars','🚘','Cars'], ['emissions','⚙','DPF'], ['nearby','⌖','Nearby'], ['garage','▣','Garage']].map(([key, icon, label]) => <button key={key} className={section === key ? 'active' : ''} onClick={() => setSection(key)}><span>{icon}</span>{label}</button>)}</nav>
-
-    <footer><Brand /><p>Understand the code. Find the right help.</p><span>React pilot · India</span></footer>
-    {modalOpen && <BusinessModal form={form} setForm={setForm} toggleVehicle={toggleVehicle} onClose={() => setModalOpen(false)} onSubmit={submitBusiness} />}
-    <div className={`toast ${toast ? 'show' : ''}`}><span>✓</span><p>{toast}</p></div>
-  </div>
-}
-
-function BusinessCard({ item, onRemove, onContact }) {
-  const labels = { mechanic: 'Mechanic', electrician: 'Auto electrician', store: 'Parts store' }
-  return <article className={`business-card ${item.verified ? '' : 'user-listed'}`}><div className={`business-visual ${item.type}`}><span>{item.initials}</span><i className={item.verified ? '' : 'pilot-badge'}>{item.verified ? 'Verified' : 'Pilot review'}</i></div><div className="business-body"><div className="rating">{item.rating ? `★ ${item.rating}` : 'New listing'} <span>· {item.rating ? `${item.reviews} reviews` : 'Owner submitted'}</span></div><div className="business-type-label">{labels[item.type]}</div><h3>{item.name}</h3><p>{item.services}</p>{item.publishContact && <div className="owner-contact"><span>Owner</span><strong>{item.ownerName}</strong><a href={`tel:${String(item.phone).replace(/\s/g, '')}`}>{item.phone}</a></div>}<div className="vehicle-tags">{item.vehicles.map(vehicle => <span key={vehicle}>{vehicle}</span>)}</div><div className="business-meta"><span>⌖ {item.distance.toFixed(1)} km</span><span className="open">Serving nearby</span></div><div className="listing-actions"><button className="contact-button" onClick={onContact}>{item.type === 'store' ? 'Ask for a part' : 'Request help'}</button>{!item.verified && <button className="remove-listing" aria-label={`Remove ${item.name}`} onClick={onRemove}>Remove</button>}</div></div></article>
-}
-
-function BusinessModal({ form, setForm, toggleVehicle, onClose, onSubmit }) {
-  const [step, setStep] = useState('details')
-  const [otp, setOtp] = useState('')
-  const [session, setSession] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [feeWaived, setFeeWaived] = useState(false)
-  const needsVehicles = form.type === 'mechanic' || form.type === 'electrician'
-  async function handleDetails(event) { event.preventDefault(); if (needsVehicles && form.vehicles.length === 0) return; if (!backendEnabled) { setStep('payment'); return } setBusy(true); setError(''); try { await sendPhoneOtp(form.phone); setStep('otp') } catch (err) { setError(err.message) } finally { setBusy(false) } }
-  async function handleOtp(event) { event.preventDefault(); setBusy(true); setError(''); try { const verified = await verifyPhoneOtp(form.phone, otp); setSession(verified); if (form.inviteCode.trim()) { const invite = await fetch('/api/invites/check', { method: 'POST', headers: { Authorization: `Bearer ${verified.accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ code: form.inviteCode }) }); setFeeWaived(invite.ok) } setStep('payment') } catch (err) { setError(err.message) } finally { setBusy(false) } }
-  return <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><button className="modal-close" aria-label="Close" onClick={onClose}>×</button><span className="modal-icon">DH</span>{step === 'details' ? <><h2 id="modalTitle">Join the Diaghub pilot</h2><p>Tell customers what you work on. Listings are reviewed before public launch.</p><div className={`fee-disclosure ${feeWaived ? 'waived' : ''}`}><div><span>Pilot joining fee</span><strong>{feeWaived ? 'Waived' : '₹250'}</strong></div><small>{feeWaived ? 'Friend invite accepted · no payment required' : 'One-time payment · no subscription · verification reviewed separately'}</small></div>
-<form onSubmit={handleDetails}>
-<label>Business type<select aria-label="Business type" value={form.type} onChange={e => setForm({...form, type: e.target.value})}><option value="mechanic">Mechanic / workshop</option><option value="electrician">Auto electrician</option><option value="store">Auto parts store</option></select></label>{needsVehicles && <fieldset className="vehicle-choice"><legend>Vehicles you work on</legend>{['car','truck','tractor'].map(vehicle => <label key={vehicle} className={form.vehicles.includes(vehicle) ? 'selected' : ''}><input type="checkbox" checked={form.vehicles.includes(vehicle)} onChange={() => toggleVehicle(vehicle)}/><span>{vehicle === 'car' ? '🚗' : vehicle === 'truck' ? '🚚' : '🚜'} {vehicle}</span></label>)}</fieldset>}<label>Business name<input aria-label="Business name" required value={form.name} onChange={e => setForm({...form, name:e.target.value})} placeholder="e.g. Mallesh Auto Works"/></label>
-<label>Owner name<input aria-label="Owner name" required value={form.ownerName} onChange={e => setForm({...form, ownerName:e.target.value})} placeholder="Name customers will see"/></label><div className="form-pair">
-<label>Contact number<input aria-label="Contact number" required inputMode="tel" maxLength="10" pattern="[6-9][0-9]{9}" value={form.phone} onChange={e => setForm({...form, phone:e.target.value.replace(/\D/g,'')})} placeholder="10-digit mobile number"/></label>
-<label>Pincode<input aria-label="Business pincode" required inputMode="numeric" maxLength="6" pattern="[0-9]{6}" value={form.pincode} onChange={e => setForm({...form, pincode:e.target.value.replace(/\D/g,'')})}/></label></div>
-<label>Services or brands<input aria-label="Services or brands" required value={form.services} onChange={e => setForm({...form, services:e.target.value})} placeholder={form.type === 'electrician' ? 'Battery, alternator, wiring' : 'Engine, service, Tata, Mahindra'}/></label>
-<label>Shop address<input aria-label="Shop address" required value={form.address} onChange={e => setForm({...form, address:e.target.value})} placeholder="Village, landmark or road"/></label>
-<GooglePlacePicker value={form.placeId} address={form.address} onSelect={place => setForm(current => ({...current, ...place}))}/>
-<label>Shop banner photo<input className="file-field" aria-label="Shop banner photo" type="file" accept="image/jpeg,image/png,image/webp" required={!form.bannerName} onChange={e => setForm({...form, bannerName:e.target.files?.[0]?.name || '', bannerFile:e.target.files?.[0] || null})}/><small className="field-help">Required for name-and-banner verification.</small></label>
-<label>Friend invite code <span className="optional">Optional</span><input aria-label="Friend invite code" value={form.inviteCode} onChange={e => setForm({...form, inviteCode:e.target.value.toUpperCase()})} placeholder="Enter invite code"/></label>
-<label className="consent-row"><input type="checkbox" checked={form.publishContact} onChange={e => setForm({...form, publishContact:e.target.checked})} required/><span>Show my owner name and contact number publicly on this listing.</span></label>
-<label className="consent-row"><input type="checkbox" checked={form.consent} onChange={e => setForm({...form, consent:e.target.checked})} required/><span>I own or manage this business and agree to pilot verification.</span></label>{error && <p className="form-error">{error}</p>}<button type="submit" disabled={busy} className="primary-button full">{busy ? 'Please wait…' : backendEnabled ? 'Verify phone & continue' : feeWaived ? 'Review free pilot entry' : 'Review & pay ₹250'}</button></form></> : step === 'otp' ? <OtpStep phone={form.phone} otp={otp} setOtp={setOtp} busy={busy} error={error} onSubmit={handleOtp} onBack={() => setStep('details')} /> : <PaymentReview form={form} fee={feeWaived ? 0 : 250} onBack={() => setStep('details')} onComplete={fee => onSubmit(fee, session)} />}</div></div>
-}
-
-function OtpStep({ phone, otp, setOtp, busy, error, onSubmit, onBack }) {
-  return <div className="otp-step"><div className="secure-mark">✓</div><h2 id="modalTitle">Verify your phone</h2><p>We sent a one-time code to +91 {phone}.</p><form onSubmit={onSubmit}><label>6-digit OTP<input aria-label="6-digit OTP" inputMode="numeric" autoComplete="one-time-code" maxLength="6" pattern="[0-9]{6}" required value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}/></label>{error && <p className="form-error">{error}</p>}<button className="primary-button full" disabled={busy} type="submit">{busy ? 'Verifying…' : 'Verify & continue'}</button><button className="back-payment" type="button" onClick={onBack}>← Edit phone number</button></form></div>
-}
-
-function PaymentReview({ form, fee, onBack, onComplete }) {
-  return <div className="payment-review"><div className="secure-mark">{fee === 0 ? '✓' : '₹'}</div><h2 id="modalTitle">{fee === 0 ? 'Friend invite applied' : 'Complete pilot joining'}</h2><p>{fee === 0 ? 'Your pilot joining fee has been waived.' : 'Review the fee before continuing to secure payment.'}</p><div className="order-card"><div><span>Business</span><strong>{form.name}</strong></div><div><span>Owner</span><strong>{form.ownerName}</strong></div><div><span>Listing type</span><strong>{form.type === 'store' ? 'Auto parts store' : form.type === 'electrician' ? 'Auto electrician' : 'Mechanic / workshop'}</strong></div><div><span>Pilot joining fee</span><strong>{fee === 0 ? 'Waived' : '₹250'}</strong></div><div className="order-total"><span>Total due once</span><strong>{fee === 0 ? '₹0' : '₹250'}</strong></div></div><ul className="payment-points"><li>{fee === 0 ? 'Private friend invitation accepted' : 'One-time fee—no recurring subscription'}</li><li>Listing enters review after joining</li><li>Joining does not guarantee verification</li></ul>
-{fee > 0 && !backendEnabled && <div className="demo-payment-note"><strong>Local preview</strong><span>No money will be charged without configured deployment services.</span></div>}
-<button className="primary-button full" type="button" onClick={() => onComplete(fee)}>{fee === 0 ? 'Submit free pilot listing' : backendEnabled ? 'Pay ₹250 securely' : 'Preview ₹250 payment'}</button><button className="back-payment" type="button" onClick={onBack}>← Edit business details</button></div>
+      <nav className="mobile-bottom-nav">{nav.map(([id, label]) => <button key={id} className={active === id ? 'active' : ''} onClick={() => setActive(id)}>{label}</button>)}</nav>
+    </div>
+  )
 }
 
 export default App
