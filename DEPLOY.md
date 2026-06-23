@@ -9,7 +9,7 @@
 
 ## 2. Check Vercel variables
 
-Add every variable listed in `.env.example` to **Vercel → Project Settings → Environment Variables**. Apply them to Production and Preview, then redeploy. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_SECRET`, `CARAPI_API_TOKEN`, or `CARAPI_API_SECRET` with a `VITE_` prefix.
+Add every variable listed in `.env.example` to **Vercel → Project Settings → Environment Variables**. Apply them to Production and Preview, then redeploy. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_SECRET`, or `CARAPI_TOKEN` with a `VITE_` prefix.
 
 ## 3. Provider configuration
 
