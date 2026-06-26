@@ -9,13 +9,14 @@
 
 ## 2. Check Vercel variables
 
-Add every variable listed in `.env.example` to **Vercel → Project Settings → Environment Variables**. Apply them to Production and Preview, then redeploy. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_SECRET`, or `CARAPI_TOKEN` with a `VITE_` prefix.
+Add every variable listed in `.env.example` to **Vercel → Project Settings → Environment Variables**. Apply them to Production and Preview, then redeploy. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_SECRET`, `CARAPI_TOKEN`, or `GEMINI_API_KEY` with a `VITE_` prefix.
 
 ## 3. Provider configuration
 
 - Google: restrict the browser key to the Vercel hostname and only Maps JavaScript API + Places API.
 - Razorpay: use Test keys for the first deployment. Switch to Live keys only after end-to-end test payments and merchant activation.
 - CarAPI: confirm the `/api/obd-codes/{code}` endpoint works with the selected plan.
+- Gemini: add `GEMINI_API_KEY` server-side only. DiagHub uses it as an AI fallback for unknown or manufacturer-specific DTC codes.
 - Supabase: add the Vercel hostname to allowed redirect/site URLs.
 
 ## 4. Deploy
