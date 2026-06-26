@@ -38,6 +38,7 @@ export const dtcCatalog = {
   U0121: ['Lost communication with ABS control module', 'The vehicle network cannot communicate with the ABS controller.', ['Weak battery voltage', 'CAN bus wiring fault', 'ABS module power problem']],
   B0001: ['Driver frontal airbag circuit fault', 'A fault was detected in the driver airbag deployment circuit.', ['Connector or wiring fault', 'Clock spring problem', 'Airbag module fault']],
   C0035: ['Left front wheel speed sensor fault', 'The ABS controller cannot reliably read the left-front wheel speed.', ['Dirty or damaged sensor', 'Broken sensor wiring', 'Damaged tone ring']],
+  C0102: ['ABS / wheel speed sensor signal fault', 'This chassis code is commonly related to an ABS wheel-speed signal or sensor circuit, but it can be manufacturer-specific. Confirm the exact wheel and circuit with scanner live data.', ['Wheel speed sensor fault', 'Damaged sensor wiring or connector', 'Tone ring / wheel bearing signal issue']],
 }
 
 const localized = {
@@ -46,12 +47,14 @@ const localized = {
     P0420: ['कैटेलिस्ट की क्षमता सीमा से कम', 'कैटेलिटिक कन्वर्टर एग्जॉस्ट को अपेक्षित रूप से साफ नहीं कर रहा है।', ['घिसा कैटेलिटिक कन्वर्टर', 'खराब ऑक्सीजन सेंसर', 'एग्जॉस्ट रिसाव']],
     P0171: ['इंजन में ईंधन कम — बैंक 1', 'इंजन में हवा अधिक या ईंधन कम पहुंच रहा है।', ['वैक्यूम रिसाव', 'गंदा एयरफ्लो सेंसर', 'कम ईंधन दबाव']],
     P0562: ['सिस्टम वोल्टेज बहुत कम', 'वाहन ने कम विद्युत वोल्टेज पाया है।', ['कमजोर बैटरी', 'अल्टरनेटर समस्या', 'ढीली या जंग लगी केबल']],
+    C0102: ['ABS / व्हील स्पीड सेंसर सिग्नल फॉल्ट', 'यह चेसिस कोड आम तौर पर ABS व्हील-स्पीड सिग्नल या सेंसर सर्किट से जुड़ा हो सकता है, लेकिन निर्माता-विशिष्ट भी हो सकता है। सही व्हील और सर्किट स्कैनर लाइव डेटा से पुष्टि करें।', ['व्हील स्पीड सेंसर खराब', 'सेंसर वायरिंग या कनेक्टर खराब', 'टोन रिंग / व्हील बेयरिंग सिग्नल समस्या']],
   },
   te: {
     P0301: ['సిలిండర్ 1 మిస్‌ఫైర్ గుర్తించబడింది', 'సిలిండర్ 1లో ఇంధనం సరిగా మండటం లేదు.', ['పాడైన స్పార్క్ ప్లగ్', 'లోపమైన ఇగ్నిషన్ కాయిల్', 'ఫ్యూయల్ ఇంజెక్టర్ సమస్య']],
     P0420: ['క్యాటలిస్ట్ సామర్థ్యం పరిమితికంటే తక్కువ', 'క్యాటలిటిక్ కన్వర్టర్ ఎగ్జాస్ట్‌ను ఆశించినంతగా శుభ్రం చేయడం లేదు.', ['పాడైన క్యాటలిటిక్ కన్వర్టర్', 'లోపమైన ఆక్సిజన్ సెన్సర్', 'ఎగ్జాస్ట్ లీక్']],
     P0171: ['ఇంజిన్ లీన్‌గా నడుస్తోంది — బ్యాంక్ 1', 'ఇంజిన్‌కు గాలి ఎక్కువగా లేదా ఇంధనం తక్కువగా అందుతోంది.', ['వాక్యూమ్ లీక్', 'మురికైన ఎయిర్‌ఫ్లో సెన్సర్', 'తక్కువ ఇంధన పీడనం']],
     P0562: ['సిస్టమ్ వోల్టేజ్ చాలా తక్కువ', 'వాహనం తక్కువ విద్యుత్ వోల్టేజ్‌ను గుర్తించింది.', ['బలహీనమైన బ్యాటరీ', 'ఆల్టర్నేటర్ సమస్య', 'వదులైన లేదా తుప్పుపట్టిన కేబుల్']],
+    C0102: ['ABS / వీల్ స్పీడ్ సెన్సర్ సిగ్నల్ ఫాల్ట్', 'ఈ chassis code సాధారణంగా ABS wheel-speed signal లేదా sensor circuit కు సంబంధించినది కావచ్చు, కానీ manufacturer-specific కూడా కావచ్చు. సరైన wheel మరియు circuit ను scanner live data తో నిర్ధారించండి.', ['వీల్ స్పీడ్ సెన్సర్ లోపం', 'సెన్సర్ వైరింగ్ లేదా కనెక్టర్ సమస్య', 'టోన్ రింగ్ / వీల్ బేరింగ్ సిగ్నల్ సమస్య']],
   },
   ta: {
     P0301: ['சிலிண்டர் 1 மிஸ்ஃபயர் கண்டறியப்பட்டது', 'சிலிண்டர் 1-ல் எரிபொருள் சரியாக எரியவில்லை.', ['தேய்ந்த ஸ்பார்க் பிளக்', 'பழுதான இக்னிஷன் காயில்', 'ஃபியூல் இன்ஜெக்டர் பிரச்சினை']],
