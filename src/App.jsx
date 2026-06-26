@@ -109,7 +109,7 @@ const LANGS = {
     models: 'Models', myGarage: 'My Garage', pilot: 'Saved vehicles, service notes and diagnosis records will appear here.', fallback: 'If no registered shop is found, use Maps results until DiagHub verifies local partners.',
     contactMe: 'Contact me', liveSource: 'Live source', fallbackSource: 'Demo trend list', liveApiNote: 'Connect a sales/search API with VITE_TRENDING_CARS_API for real-time trending cars.',
     serviceIntro: 'Contact DiagHub directly for these professional services.', invalidCode: 'Enter a valid 5-character OBD code, for example P0301, C0035, B0001, or U0100.',
-    localDtc: 'Live provider not connected yet. Showing DiagHub diagnostic guidance.', remoteDtc: 'Live provider result loaded.', shopVisit: 'Shop visit',
+    localDtc: 'Showing DiagHub diagnostic guidance.', remoteDtc: 'Live provider result loaded.', geminiMissing: 'Gemini is not configured on this deployment. Add GEMINI_API_KEY in Vercel and redeploy for AI fallback on unknown codes.', geminiFailed: 'Gemini fallback did not return a result. Showing safe local guidance.', shopVisit: 'Shop visit',
     signedIn: 'Signed in', adminHelp: 'This panel is ready to connect to Supabase Auth or Firebase OTP for production sign-in.', garageEmpty: 'Saved vehicles, past DTC searches, uploaded images, shop visits, bills and reminders will appear here.',
     make: 'Make', year: 'Year', fuel: 'Fuel', note: 'Note',
   },
@@ -129,7 +129,7 @@ const LANGS = {
     models: 'मॉडल', myGarage: 'मेरा गैरेज', pilot: 'सेव वाहन, सर्विस नोट्स और डायग्नोसिस रिकॉर्ड यहां दिखेंगे।', fallback: 'रजिस्टर्ड दुकान न मिले तो DiagHub पार्टनर वेरिफाई होने तक Maps रिजल्ट इस्तेमाल करें।',
     contactMe: 'मुझसे संपर्क करें', liveSource: 'लाइव सोर्स', fallbackSource: 'डेमो ट्रेंड सूची', liveApiNote: 'रीयल-टाइम ट्रेंडिंग कारों के लिए VITE_TRENDING_CARS_API से सेल्स/सर्च API जोड़ें।',
     serviceIntro: 'इन प्रोफेशनल सेवाओं के लिए DiagHub से सीधे संपर्क करें।', invalidCode: 'सही 5 अक्षर का OBD कोड डालें, जैसे P0301, C0035, B0001 या U0100।',
-    localDtc: 'लाइव प्रोवाइडर अभी कनेक्ट नहीं है। DiagHub गाइडेंस दिखा रहे हैं।', remoteDtc: 'लाइव प्रोवाइडर परिणाम लोड हुआ।', shopVisit: 'दुकान विजिट',
+    localDtc: 'DiagHub गाइडेंस दिखा रहे हैं।', remoteDtc: 'लाइव प्रोवाइडर परिणाम लोड हुआ।', geminiMissing: 'इस deployment में Gemini configured नहीं है। Unknown codes के AI fallback के लिए Vercel में GEMINI_API_KEY जोड़कर redeploy करें।', geminiFailed: 'Gemini fallback से result नहीं आया। Safe local guidance दिखा रहे हैं।', shopVisit: 'दुकान विजिट',
     signedIn: 'साइन इन हो गया', adminHelp: 'प्रोडक्शन साइन-इन के लिए यह पैनल Supabase Auth या Firebase OTP से जुड़ सकता है।', garageEmpty: 'सेव वाहन, पुराने DTC, अपलोड, दुकान विजिट, बिल और रिमाइंडर यहां दिखेंगे।',
     make: 'ब्रांड', year: 'वर्ष', fuel: 'ईंधन', note: 'नोट',
   },
@@ -149,7 +149,7 @@ const LANGS = {
     models: 'మోడల్స్', myGarage: 'మై గ్యారేజ్', pilot: 'సేవ్ వాహనాలు, సర్వీస్ నోట్స్, డయాగ్నోసిస్ రికార్డ్స్ ఇక్కడ కనిపిస్తాయి.', fallback: 'రిజిస్టర్ షాప్ లేకపోతే DiagHub పార్టనర్లు వెరిఫై అయ్యే వరకు Maps రిజల్ట్స్ వాడండి.',
     contactMe: 'నన్ను సంప్రదించండి', liveSource: 'లైవ్ సోర్స్', fallbackSource: 'డెమో ట్రెండ్ లిస్ట్', liveApiNote: 'రీయల్ టైమ్ ట్రెండింగ్ కార్ల కోసం VITE_TRENDING_CARS_API తో సేల్స్/సెర్చ్ API కనెక్ట్ చేయండి.',
     serviceIntro: 'ఈ ప్రొఫెషనల్ సర్వీసుల కోసం DiagHub ని నేరుగా సంప్రదించండి.', invalidCode: 'P0301, C0035, B0001 లేదా U0100 లాంటి సరైన 5 అక్షరాల OBD కోడ్ నమోదు చేయండి.',
-    localDtc: 'లైవ్ ప్రొవైడర్ ఇంకా కనెక్ట్ కాలేదు. DiagHub గైడెన్స్ చూపిస్తున్నాం.', remoteDtc: 'లైవ్ ప్రొవైడర్ రిజల్ట్ లోడ్ అయింది.', shopVisit: 'షాప్ విజిట్',
+    localDtc: 'DiagHub గైడెన్స్ చూపిస్తున్నాం.', remoteDtc: 'లైవ్ ప్రొవైడర్ రిజల్ట్ లోడ్ అయింది.', geminiMissing: 'ఈ deployment లో Gemini configure కాలేదు. Unknown codes కి AI fallback రావాలంటే Vercel లో GEMINI_API_KEY add చేసి redeploy చేయండి.', geminiFailed: 'Gemini fallback result ఇవ్వలేదు. Safe local guidance చూపిస్తున్నాం.', shopVisit: 'షాప్ విజిట్',
     signedIn: 'సైన్ ఇన్ అయింది', adminHelp: 'ప్రొడక్షన్ సైన్-ఇన్ కోసం ఈ ప్యానెల్ Supabase Auth లేదా Firebase OTP కి కనెక్ట్ చేయవచ్చు.', garageEmpty: 'సేవ్ వాహనాలు, పాత DTCలు, అప్‌లోడ్లు, షాప్ విజిట్లు, బిల్లులు, రిమైండర్లు ఇక్కడ కనిపిస్తాయి.',
     make: 'బ్రాండ్', year: 'సంవత్సరం', fuel: 'ఫ్యూయల్', note: 'నోట్',
   },
@@ -163,6 +163,8 @@ function normalizeRemoteDtc(payload) {
     title: payload.description || payload.definition || payload.name,
     summary: payload.explanation || 'Provider returned a match for this DTC code.',
     causes: Array.isArray(payload.causes) && payload.causes.length ? payload.causes : ['Confirm with scanner live data and vehicle service information'],
+    source: payload.source,
+    fallbackReason: payload.fallbackReason,
   }
 }
 
@@ -314,7 +316,8 @@ function App() {
 }
 
 function DtcCard({ t, code, setCode, dtc, status, onSearch }) {
-  return <div className="card dtc"><h2>{t.codeSearch}</h2><form className="searchBox" onSubmit={onSearch}><input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder={t.enterCode} /><button disabled={status === 'loading'}>{status === 'loading' ? t.searching : t.search}</button></form><div className="upload">{t.uploadImage}</div>{status === 'invalid' && <p className="note">{t.invalidCode}</p>}{status === 'local' && <p className="note">{t.localDtc}</p>}{status === 'remote' && <p className="note">{t.remoteDtc}</p>}{dtc && <div className="result"><h3>{dtc.title}</h3><p><b>{t.symptoms}:</b> {dtc.summary}</p><p><b>{t.causes}:</b> {dtc.causes.join(', ')}</p><p><b>{t.fixes}:</b> {dtc.urgency}</p><button>{t.askAi}</button></div>}</div>
+  const statusNote = dtc?.fallbackReason === 'gemini_not_configured' ? t.geminiMissing : dtc?.fallbackReason === 'gemini_failed' ? t.geminiFailed : status === 'local' ? t.localDtc : status === 'remote' ? t.remoteDtc : ''
+  return <div className="card dtc"><h2>{t.codeSearch}</h2><form className="searchBox" onSubmit={onSearch}><input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder={t.enterCode} /><button disabled={status === 'loading'}>{status === 'loading' ? t.searching : t.search}</button></form><div className="upload">{t.uploadImage}</div>{status === 'invalid' && <p className="note">{t.invalidCode}</p>}{statusNote && <p className="note">{statusNote}</p>}{dtc && <div className="result"><h3>{dtc.title}</h3><p><b>{t.symptoms}:</b> {dtc.summary}</p><p><b>{t.causes}:</b> {dtc.causes.join(', ')}</p><p><b>{t.fixes}:</b> {dtc.urgency}</p><button>{t.askAi}</button></div>}</div>
 }
 
 function SectionTitle({ title, text }) {
