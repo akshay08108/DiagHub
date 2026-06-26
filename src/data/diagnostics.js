@@ -82,18 +82,46 @@ const languageFallbacks = {
   ml: { unknown: 'പ്രാദേശിക ലൈബ്രറിയിൽ വിവരണം ലഭ്യമല്ല', summary: 'ഇത് നിർമ്മാതാവിനനുസരിച്ചുള്ള കോഡ് ആയിരിക്കാം. വാഹന സർവീസ് മാനുവലോ പ്രൊഫഷണൽ സ്കാനറോ ഉപയോഗിച്ച് സ്ഥിരീകരിക്കുക.', urgency: 'പ്രൊഫഷണൽ സ്കാനർ ഉപയോഗിച്ച് സ്ഥിരീകരിക്കുക' },
 }
 
+const generatedMisfire = {
+  en: cylinder => ({
+    title: `Cylinder ${cylinder} misfire detected`,
+    summary: `Cylinder ${cylinder} is not burning fuel correctly. The engine may shake, lose power, or use more fuel.`,
+    causes: ['Worn spark plug', 'Faulty ignition coil', 'Fuel injector or compression issue'],
+  }),
+  hi: cylinder => ({
+    title: `सिलेंडर ${cylinder} में मिसफायर`,
+    summary: `सिलेंडर ${cylinder} में ईंधन सही तरह नहीं जल रहा है। इंजन कांप सकता है, पावर कम हो सकती है या ईंधन ज्यादा लग सकता है।`,
+    causes: ['घिसा हुआ स्पार्क प्लग', 'खराब इग्निशन कॉइल', 'फ्यूल इंजेक्टर या कम्प्रेशन समस्या'],
+  }),
+  te: cylinder => ({
+    title: `సిలిండర్ ${cylinder} మిస్‌ఫైర్ గుర్తించబడింది`,
+    summary: `సిలిండర్ ${cylinder}లో ఇంధనం సరిగా మండటం లేదు. ఇంజిన్ కంపించవచ్చు, పవర్ తగ్గవచ్చు లేదా ఫ్యూయల్ ఎక్కువగా ఖర్చవచ్చు.`,
+    causes: ['పాడైన స్పార్క్ ప్లగ్', 'లోపమైన ఇగ్నిషన్ కాయిల్', 'ఫ్యూయల్ ఇంజెక్టర్ లేదా కంప్రెషన్ సమస్య'],
+  }),
+  ta: cylinder => ({
+    title: `சிலிண்டர் ${cylinder} மிஸ்ஃபயர் கண்டறியப்பட்டது`,
+    summary: `சிலிண்டர் ${cylinder}-ல் எரிபொருள் சரியாக எரியவில்லை. எஞ்சின் அதிரலாம், சக்தி குறையலாம் அல்லது எரிபொருள் அதிகம் செலவாகலாம்.`,
+    causes: ['தேய்ந்த ஸ்பார்க் பிளக்', 'பழுதான இக்னிஷன் காயில்', 'ஃபியூல் இன்ஜெக்டர் அல்லது கம்ப்ரஷன் பிரச்சினை'],
+  }),
+  kn: cylinder => ({
+    title: `ಸಿಲಿಂಡರ್ ${cylinder} ಮಿಸ್‌ಫೈರ್ ಪತ್ತೆಯಾಗಿದೆ`,
+    summary: `ಸಿಲಿಂಡರ್ ${cylinder}ರಲ್ಲಿ ಇಂಧನ ಸರಿಯಾಗಿ ಉರಿಯುತ್ತಿಲ್ಲ. ಎಂಜಿನ್ ಕಂಪಿಸಬಹುದು, ಪವರ್ ಕಡಿಮೆಯಾಗಬಹುದು ಅಥವಾ ಇಂಧನ ಹೆಚ್ಚು ಖರ್ಚಾಗಬಹುದು.`,
+    causes: ['ಸವೆದ ಸ್ಪಾರ್ಕ್ ಪ್ಲಗ್', 'ದೋಷಯುಕ್ತ ಇಗ್ನಿಷನ್ ಕಾಯಿಲ್', 'ಫ್ಯೂಯಲ್ ಇಂಜೆಕ್ಟರ್ ಅಥವಾ ಕಂಪ್ರೆಷನ್ ಸಮಸ್ಯೆ'],
+  }),
+  ml: cylinder => ({
+    title: `സിലിണ്ടർ ${cylinder} മിസ്‌ഫയർ കണ്ടെത്തി`,
+    summary: `സിലിണ്ടർ ${cylinder}ൽ ഇന്ധനം ശരിയായി കത്തുന്നില്ല. എഞ്ചിൻ കുലുങ്ങുകയോ പവർ കുറയുകയോ ഇന്ധനം കൂടുതൽ ചെലവാകുകയോ ചെയ്യാം.`,
+    causes: ['തേഞ്ഞ സ്പാർക്ക് പ്ലഗ്', 'തകരാറായ ഇഗ്നിഷൻ കോയിൽ', 'ഫ്യൂവൽ ഇൻജക്ടർ അല്ലെങ്കിൽ കമ്പ്രഷൻ പ്രശ്നം'],
+  }),
+}
+
 export function diagnosisFor(code, language = 'en', remote = null) {
   const fallback = languageFallbacks[language] || languageFallbacks.en
   const localizedEntry = localized[language]?.[code]
   const entry = localizedEntry || dtcCatalog[code]
   if (entry) return { title: entry[0], summary: entry[1], causes: entry[2], urgency: fallback.urgency }
   const misfireCylinder = /^P03(0[1-9]|1[0-2])$/.test(code) ? Number(code.slice(3)) : 0
-  if (misfireCylinder) return {
-    title: `Cylinder ${misfireCylinder} misfire detected`,
-    summary: `Cylinder ${misfireCylinder} is not burning fuel correctly. The engine may shake, lose power, or use more fuel.`,
-    causes: ['Worn spark plug', 'Faulty ignition coil', 'Fuel injector or compression issue'],
-    urgency: fallback.urgency,
-  }
+  if (misfireCylinder) return { ...(generatedMisfire[language] || generatedMisfire.en)(misfireCylinder), urgency: fallback.urgency }
   if (remote) return { ...remote, urgency: fallback.urgency }
   return { title: `${code} — ${fallback.unknown}`, summary: fallback.summary, causes: [fallback.urgency], urgency: fallback.urgency }
 }
