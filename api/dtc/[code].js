@@ -12,7 +12,7 @@ function localPayload(code, language) {
 
 async function fallbackPayload(code, language) {
   const gemini = await lookupDtcWithGemini(code, language).catch(() => null)
-  return gemini || localPayload(code, language)
+  return gemini || { ...localPayload(code, language), fallbackReason: process.env.GEMINI_API_KEY ? 'gemini_failed' : 'gemini_not_configured' }
 }
 
 export default async function handler(request, response) {
