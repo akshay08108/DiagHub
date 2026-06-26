@@ -1,73 +1,324 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { diagnosisFor } from './data/diagnostics.js'
+import { vehicleMakes, vehicleYears } from './data/vehicles.js'
 
-const LANGS = {
-  en: { name: 'English', home:'Home', admin:'Admin', nearby:'Nearby', cars:'Cars', dpf:'DPF/DEF', services:'Services', history:'History', login:'Login', signup:'Sign up', logout:'Log out', heroTitle:'DiagHub helps stranded vehicle owners find help within 20 km.', heroText:'Search DTC codes, upload fault images, ask AI, find registered mechanics/electricians/auto stores, and manage your garage in one mobile friendly app.', codeSearch:'Code Search / DTC Upload', enterCode:'Enter DTC / OBD code', search:'Search', uploadImage:'Upload DTC image', askAi:'Ask AI', findMechanic:'Find mechanic nearby', symptoms:'Symptoms', fixes:'Possible fixes', causes:'Causes', profile:'Admin Profile', displayName:'Display name', emailPhone:'Email / phone number', photo:'Profile picture', location:'Location access', locationHelp:'Location is used to show shops within 20 km.', addShop:'Add Shop', shopName:'Shop name', ownerName:'Owner name', workType:'Work type', mechanic:'Mechanic', electrician:'Electrician', parts:'Auto parts store', shopLocation:'Shop location', address:'Address from location', pincode:'Pin code', mobile:'Mobile number', showNearby:'Display my shop in nearby search', mobileService:'Mobile service available', otp:'OTP verification', fee:'Registration fee', invite:'Invite code', payment:'Payment page', noFee:'No fee with valid invite code', buy:'Buy products', registered:'Registered shops', dpfTitle:'DPF / DEF Information', selectVehicle:'Select vehicle', brand:'Brand', model:'Model', year:'Year', fuel:'Fuel type', result:'Result', defUse:'AdBlue / DEF usage', instructions:'Instructions', carInfo:'Car Information', trending:'Trending cars', allBrands:'All car brands', searchCar:'Search car brand/model', myGarage:'My Garage', pilot:'Pilot users get garage history, saved vehicles, service notes and diagnosis records.', languageNote:'Language changes all visible app sections in this version.', fallback:'If no registered shop is found, show Google Maps local mechanic results.', servicesText:'KTM, KTAG installation, scanner training, scanner buying suggestions, immobilizer coding, Superchips, ECM files, DPF files, UPA Red / Black.' },
-  hi: { name:'हिंदी', home:'होम', admin:'एडमिन', nearby:'नज़दीक', cars:'कारें', dpf:'DPF/DEF', services:'सेवाएं', history:'इतिहास', login:'लॉगिन', signup:'साइन अप', logout:'लॉग आउट', heroTitle:'DiagHub 20 किमी के अंदर फंसे वाहन मालिकों को मदद दिलाता है।', heroText:'DTC कोड खोजें, फोटो अपलोड करें, AI से पूछें, नज़दीकी मैकेनिक/इलेक्ट्रिशियन/ऑटो स्टोर खोजें और अपना गैरेज मैनेज करें।', codeSearch:'कोड सर्च / DTC अपलोड', enterCode:'DTC / OBD कोड डालें', search:'खोजें', uploadImage:'DTC फोटो अपलोड', askAi:'AI से पूछें', findMechanic:'नज़दीकी मैकेनिक खोजें', symptoms:'लक्षण', fixes:'संभावित समाधान', causes:'कारण', profile:'एडमिन प्रोफाइल', displayName:'नाम', emailPhone:'ईमेल / फोन नंबर', photo:'प्रोफाइल फोटो', location:'लोकेशन एक्सेस', locationHelp:'लोकेशन से 20 किमी के अंदर दुकानें दिखाई जाती हैं।', addShop:'दुकान जोड़ें', shopName:'दुकान का नाम', ownerName:'मालिक का नाम', workType:'काम का प्रकार', mechanic:'मैकेनिक', electrician:'इलेक्ट्रिशियन', parts:'ऑटो पार्ट्स स्टोर', shopLocation:'दुकान लोकेशन', address:'लोकेशन से पता', pincode:'पिन कोड', mobile:'मोबाइल नंबर', showNearby:'मेरी दुकान नज़दीकी खोज में दिखाएं', mobileService:'मोबाइल सर्विस उपलब्ध', otp:'OTP सत्यापन', fee:'रजिस्ट्रेशन फीस', invite:'इनवाइट कोड', payment:'पेमेंट पेज', noFee:'वैध इनवाइट कोड पर कोई फीस नहीं', buy:'प्रोडक्ट खरीदें', registered:'रजिस्टर्ड दुकानें', dpfTitle:'DPF / DEF जानकारी', selectVehicle:'वाहन चुनें', brand:'ब्रांड', model:'मॉडल', year:'वर्ष', fuel:'ईंधन', result:'परिणाम', defUse:'AdBlue / DEF उपयोग', instructions:'निर्देश', carInfo:'कार जानकारी', trending:'ट्रेंडिंग कारें', allBrands:'सभी कार ब्रांड', searchCar:'कार ब्रांड/मॉडल खोजें', myGarage:'मेरा गैरेज', pilot:'पायलट यूज़र्स के लिए गैरेज हिस्ट्री, सेव वाहन, सर्विस नोट्स और डायग्नोसिस रिकॉर्ड।', languageNote:'इस वर्जन में सभी दिखने वाले सेक्शन भाषा बदलते हैं।', fallback:'अगर रजिस्टर्ड दुकान न मिले तो Google Maps लोकल मैकेनिक रिजल्ट दिखाएं।', servicesText:'KTM, KTAG इंस्टॉलेशन, स्कैनर ट्रेनिंग, स्कैनर सुझाव, इमोबिलाइज़र कोडिंग, Superchips, ECM फाइल्स, DPF फाइल्स, UPA Red / Black.' },
-  te: { name:'తెలుగు', home:'హోమ్', admin:'అడ్మిన్', nearby:'దగ్గరలో', cars:'కార్లు', dpf:'DPF/DEF', services:'సర్వీసులు', history:'హిస్టరీ', login:'లాగిన్', signup:'సైన్ అప్', logout:'లాగౌట్', heroTitle:'DiagHub 20 కిమీ లోపు వాహన యజమానులకు సహాయం అందిస్తుంది.', heroText:'DTC కోడ్లు వెతకండి, ఫాల్ట్ ఫోటో అప్‌లోడ్ చేయండి, AI ని అడగండి, దగ్గరలో మెకానిక్‌లు/ఎలక్ట్రిషియన్‌లు/ఆటో స్టోర్లు కనుగొనండి.', codeSearch:'కోడ్ సెర్చ్ / DTC అప్‌లోడ్', enterCode:'DTC / OBD కోడ్ నమోదు చేయండి', search:'వెతకండి', uploadImage:'DTC ఫోటో అప్‌లోడ్', askAi:'AI ని అడగండి', findMechanic:'దగ్గరలో మెకానిక్ కనుగొనండి', symptoms:'లక్షణాలు', fixes:'పరిష్కారాలు', causes:'కారణాలు', profile:'అడ్మిన్ ప్రొఫైల్', displayName:'పేరు', emailPhone:'ఈమెయిల్ / ఫోన్', photo:'ప్రొఫైల్ ఫోటో', location:'లోకేషన్ యాక్సెస్', locationHelp:'20 కిమీ లోపు షాపులను చూపడానికి లోకేషన్ ఉపయోగిస్తాం.', addShop:'షాప్ జోడించండి', shopName:'షాప్ పేరు', ownerName:'ఓనర్ పేరు', workType:'పని రకం', mechanic:'మెకానిక్', electrician:'ఎలక్ట్రిషియన్', parts:'ఆటో పార్ట్స్ స్టోర్', shopLocation:'షాప్ లోకేషన్', address:'లోకేషన్ ద్వారా అడ్రస్', pincode:'పిన్ కోడ్', mobile:'మొబైల్ నంబర్', showNearby:'నా షాప్ దగ్గరలో సెర్చ్‌లో చూపండి', mobileService:'మొబైల్ సర్వీస్ ఉంది', otp:'OTP వెరిఫికేషన్', fee:'రిజిస్ట్రేషన్ ఫీజు', invite:'ఇన్వైట్ కోడ్', payment:'పేమెంట్ పేజ్', noFee:'సరైన ఇన్వైట్ కోడ్ ఉంటే ఫీజు లేదు', buy:'ప్రోడక్ట్స్ కొనండి', registered:'రిజిస్టర్ షాపులు', dpfTitle:'DPF / DEF సమాచారం', selectVehicle:'వాహనం ఎంచుకోండి', brand:'బ్రాండ్', model:'మోడల్', year:'సంవత్సరం', fuel:'ఫ్యూయల్', result:'ఫలితం', defUse:'AdBlue / DEF వినియోగం', instructions:'సూచనలు', carInfo:'కారు సమాచారం', trending:'ట్రెండింగ్ కార్లు', allBrands:'అన్ని కార్ బ్రాండ్స్', searchCar:'కార్ బ్రాండ్/మోడల్ వెతకండి', myGarage:'మై గ్యారేజ్', pilot:'పైలట్ యూజర్లకు గ్యారేజ్ హిస్టరీ, సేవ్ వాహనాలు, సర్వీస్ నోట్స్, డయాగ్నోసిస్ రికార్డ్స్.', languageNote:'ఈ వెర్షన్‌లో కనిపించే అన్ని సెక్షన్లు భాష మారతాయి.', fallback:'రిజిస్టర్ షాప్ లేకపోతే Google Maps లోకల్ మెకానిక్ రిజల్ట్స్ చూపించాలి.', servicesText:'KTM, KTAG ఇన్‌స్టాలేషన్, స్కానర్ ట్రైనింగ్, స్కానర్ కొనుగోలు సూచనలు, ఇమోబిలైజర్ కోడింగ్, Superchips, ECM ఫైల్స్, DPF ఫైల్స్, UPA Red / Black.' },
-  ta: { name:'தமிழ்', home:'முகப்பு', admin:'அட்மின்', nearby:'அருகில்', cars:'கார்கள்', dpf:'DPF/DEF', services:'சேவைகள்', history:'வரலாறு', login:'உள்நுழை', signup:'பதிவு', logout:'வெளியேறு', heroTitle:'DiagHub 20 கிமீ உள்ள வாகன உதவியை இணைக்கிறது.', heroText:'DTC குறியீடு தேடல், படம் பதிவேற்றம், AI உதவி, அருகிலுள்ள மெக்கானிக்/எலக்ட்ரீஷியன்/ஆட்டோ ஸ்டோர்கள்.', codeSearch:'கோடு தேடல் / DTC படம்', enterCode:'DTC / OBD கோடு', search:'தேடு', uploadImage:'DTC படம் பதிவேற்று', askAi:'AI கேள்', findMechanic:'அருகிலுள்ள மெக்கானிக்', symptoms:'அறிகுறிகள்', fixes:'தீர்வுகள்', causes:'காரணங்கள்', profile:'அட்மின் சுயவிவரம்', displayName:'பெயர்', emailPhone:'மின்னஞ்சல் / போன்', photo:'புகைப்படம்', location:'இட அனுமதி', locationHelp:'20 கிமீ உள்ள கடைகளை காட்ட இடம் தேவை.', addShop:'கடை சேர்', shopName:'கடை பெயர்', ownerName:'உரிமையாளர்', workType:'வேலை வகை', mechanic:'மெக்கானிக்', electrician:'எலக்ட்ரீஷியன்', parts:'ஆட்டோ பாக்ஸ் கடை', shopLocation:'கடை இடம்', address:'இடத்திலிருந்து முகவரி', pincode:'பின் கோடு', mobile:'மொபைல்', showNearby:'அருகில் காட்டவும்', mobileService:'மொபைல் சேவை', otp:'OTP சரிபார்ப்பு', fee:'பதிவு கட்டணம்', invite:'Invite code', payment:'கட்டணம்', noFee:'சரியான invite code இருந்தால் கட்டணம் இல்லை', buy:'பொருட்கள் வாங்கு', registered:'பதிவு கடைகள்', dpfTitle:'DPF / DEF தகவல்', selectVehicle:'வாகனம் தேர்வு', brand:'பிராண்ட்', model:'மாடல்', year:'ஆண்டு', fuel:'எரிபொருள்', result:'முடிவு', defUse:'AdBlue / DEF பயன்பாடு', instructions:'வழிமுறைகள்', carInfo:'கார் தகவல்', trending:'டிரெண்டிங் கார்கள்', allBrands:'அனைத்து பிராண்டுகள்', searchCar:'கார் தேடு', myGarage:'என் கேரேஜ்', pilot:'Pilot பயனர்களுக்கு garage history, saved vehicles, service notes.', languageNote:'இந்த பதிப்பில் எல்லா visible sections மொழி மாறும்.', fallback:'Registered shop இல்லையெனில் Google Maps local mechanic results காட்டவும்.', servicesText:'KTM, KTAG installation, scanner training, scanner buying suggestions, immobilizer coding, Superchips, ECM files, DPF files, UPA Red / Black.' },
-  ml: { name:'മലയാളം', home:'ഹോം', admin:'അഡ്മിൻ', nearby:'അടുത്തത്', cars:'കാറുകൾ', dpf:'DPF/DEF', services:'സേവനങ്ങൾ', history:'ചരിത്രം', login:'ലോഗിൻ', signup:'സൈൻ അപ്പ്', logout:'ലോഗ് ഔട്ട്', heroTitle:'DiagHub 20 കിമീ പരിധിയിൽ വാഹന സഹായം കണ്ടെത്തുന്നു.', heroText:'DTC കോഡ്, ചിത്രം അപ്‌ലോഡ്, AI സഹായം, അടുത്തുള്ള മെക്കാനിക്/ഇലക്ട്രീഷ്യൻ/ഓട്ടോ സ്റ്റോറുകൾ.', codeSearch:'കോഡ് സെർച്ച് / DTC അപ്‌ലോഡ്', enterCode:'DTC / OBD കോഡ്', search:'തിരയുക', uploadImage:'DTC ചിത്രം അപ്‌ലോഡ്', askAi:'AI ചോദിക്കുക', findMechanic:'അടുത്തുള്ള മെക്കാനിക്', symptoms:'ലക്ഷണങ്ങൾ', fixes:'പരിഹാരങ്ങൾ', causes:'കാരണം', profile:'അഡ്മിൻ പ്രൊഫൈൽ', displayName:'പേര്', emailPhone:'ഇമെയിൽ / ഫോൺ', photo:'പ്രൊഫൈൽ ചിത്രം', location:'ലൊക്കേഷൻ ആക്‌സസ്', locationHelp:'20 കിമീ ഉള്ള ഷോപ്പുകൾ കാണാൻ ലൊക്കേഷൻ വേണം.', addShop:'ഷോപ്പ് ചേർക്കുക', shopName:'ഷോപ്പ് പേര്', ownerName:'ഉടമ', workType:'വർക്ക് ടൈപ്പ്', mechanic:'മെക്കാനിക്', electrician:'ഇലക്ട്രീഷ്യൻ', parts:'ഓട്ടോ പാർട്സ്', shopLocation:'ഷോപ്പ് ലൊക്കേഷൻ', address:'ലൊക്കേഷനിൽ നിന്ന് വിലാസം', pincode:'പിൻകോഡ്', mobile:'മൊബൈൽ', showNearby:'Nearby search-ൽ കാണിക്കുക', mobileService:'മൊബൈൽ സർവീസ്', otp:'OTP verification', fee:'ഫീസ്', invite:'Invite code', payment:'പേയ്മെന്റ്', noFee:'Invite code ഉണ്ടെങ്കിൽ ഫീസ് ഇല്ല', buy:'പ്രോഡക്റ്റുകൾ വാങ്ങുക', registered:'Registered shops', dpfTitle:'DPF / DEF വിവരം', selectVehicle:'വാഹനം തിരഞ്ഞെടുക്കുക', brand:'ബ്രാൻഡ്', model:'മോഡൽ', year:'വർഷം', fuel:'ഫ്യൂവൽ', result:'ഫലം', defUse:'AdBlue / DEF usage', instructions:'നിർദ്ദേശങ്ങൾ', carInfo:'കാർ വിവരം', trending:'Trending cars', allBrands:'All brands', searchCar:'കാർ തിരയുക', myGarage:'My Garage', pilot:'Pilot users get history and diagnosis records.', languageNote:'ഈ പതിപ്പിൽ visible sections ഭാഷ മാറും.', fallback:'Registered shop ഇല്ലെങ്കിൽ Google Maps local mechanics കാണിക്കുക.', servicesText:'KTM, KTAG installation, scanner training, scanner buying suggestions, immobilizer coding, Superchips, ECM files, DPF files, UPA Red / Black.' },
-  kn: { name:'ಕನ್ನಡ', home:'ಹೋಮ್', admin:'ಅಡ್ಮಿನ್', nearby:'ಹತ್ತಿರ', cars:'ಕಾರುಗಳು', dpf:'DPF/DEF', services:'ಸೇವೆಗಳು', history:'ಇತಿಹಾಸ', login:'ಲಾಗಿನ್', signup:'ಸೈನ್ ಅಪ್', logout:'ಲಾಗೌಟ್', heroTitle:'DiagHub 20 ಕಿಮೀ ವ್ಯಾಪ್ತಿಯಲ್ಲಿ ವಾಹನ ಸಹಾಯ ತರುತ್ತದೆ.', heroText:'DTC ಕೋಡ್ ಹುಡುಕಿ, ಚಿತ್ರ ಅಪ್ಲೋಡ್ ಮಾಡಿ, AI ಕೇಳಿ, ಹತ್ತಿರದ ಮೆಕ್ಯಾನಿಕ್/ಎಲೆಕ್ಟ್ರಿಷಿಯನ್/ಆಟೋ ಸ್ಟೋರ್ ಹುಡುಕಿ.', codeSearch:'ಕೋಡ್ ಹುಡುಕಾಟ / DTC ಅಪ್ಲೋಡ್', enterCode:'DTC / OBD ಕೋಡ್', search:'ಹುಡುಕಿ', uploadImage:'DTC ಚಿತ್ರ ಅಪ್ಲೋಡ್', askAi:'AI ಕೇಳಿ', findMechanic:'ಹತ್ತಿರದ ಮೆಕ್ಯಾನಿಕ್', symptoms:'ಲಕ್ಷಣಗಳು', fixes:'ಪರಿಹಾರಗಳು', causes:'ಕಾರಣಗಳು', profile:'ಅಡ್ಮಿನ್ ಪ್ರೊಫೈಲ್', displayName:'ಹೆಸರು', emailPhone:'ಇಮೇಲ್ / ಫೋನ್', photo:'ಪ್ರೊಫೈಲ್ ಫೋಟೋ', location:'ಲೊಕೇಶನ್ ಅನುಮತಿ', locationHelp:'20 ಕಿಮೀ ಒಳಗಿನ ಅಂಗಡಿಗಳನ್ನು ತೋರಿಸಲು ಲೊಕೇಶನ್ ಬೇಕು.', addShop:'ಅಂಗಡಿ ಸೇರಿಸಿ', shopName:'ಅಂಗಡಿ ಹೆಸರು', ownerName:'ಮಾಲೀಕ', workType:'ಕೆಲಸ ಪ್ರಕಾರ', mechanic:'ಮೆಕ್ಯಾನಿಕ್', electrician:'ಎಲೆಕ್ಟ್ರಿಷಿಯನ್', parts:'ಆಟೋ ಪಾರ್ಟ್ಸ್', shopLocation:'ಅಂಗಡಿ ಲೊಕೇಶನ್', address:'ಲೊಕೇಶನ್‌ನಿಂದ ವಿಳಾಸ', pincode:'ಪಿನ್ ಕೋಡ್', mobile:'ಮೊಬೈಲ್', showNearby:'Nearby search ನಲ್ಲಿ ತೋರಿಸಿ', mobileService:'ಮೊಬೈಲ್ ಸರ್ವಿಸ್', otp:'OTP verification', fee:'ನೋಂದಣಿ ಶುಲ್ಕ', invite:'Invite code', payment:'ಪಾವತಿ', noFee:'Valid invite code ಇದ್ದರೆ ಶುಲ್ಕ ಇಲ್ಲ', buy:'ಪ್ರಾಡಕ್ಟ್ಸ್ ಖರೀದಿ', registered:'Registered shops', dpfTitle:'DPF / DEF ಮಾಹಿತಿ', selectVehicle:'ವಾಹನ ಆಯ್ಕೆ', brand:'ಬ್ರ್ಯಾಂಡ್', model:'ಮಾಡೆಲ್', year:'ವರ್ಷ', fuel:'ಇಂಧನ', result:'ಫಲಿತಾಂಶ', defUse:'AdBlue / DEF usage', instructions:'ಸೂಚನೆಗಳು', carInfo:'ಕಾರು ಮಾಹಿತಿ', trending:'Trending cars', allBrands:'All brands', searchCar:'ಕಾರು ಹುಡುಕಿ', myGarage:'My Garage', pilot:'Pilot users get garage history and records.', languageNote:'ಈ ಆವೃತ್ತಿಯಲ್ಲಿ visible sections ಭಾಷೆ ಬದಲಾಗುತ್ತದೆ.', fallback:'Registered shop ಇಲ್ಲದಿದ್ದರೆ Google Maps local mechanic results ತೋರಿಸಿ.', servicesText:'KTM, KTAG installation, scanner training, scanner buying suggestions, immobilizer coding, Superchips, ECM files, DPF files, UPA Red / Black.' },
-  pa: { name:'ਪੰਜਾਬੀ', home:'ਹੋਮ', admin:'ਐਡਮਿਨ', nearby:'ਨੇੜੇ', cars:'ਕਾਰਾਂ', dpf:'DPF/DEF', services:'ਸੇਵਾਵਾਂ', history:'ਹਿਸਟਰੀ', login:'ਲਾਗਇਨ', signup:'ਸਾਈਨ ਅੱਪ', logout:'ਲਾਗ ਆਉਟ', heroTitle:'DiagHub 20 ਕਿਮੀ ਦੇ ਅੰਦਰ ਵਾਹਨ ਮਦਦ ਦਿੰਦਾ ਹੈ।', heroText:'DTC ਕੋਡ ਖੋਜੋ, ਫੋਟੋ ਅੱਪਲੋਡ ਕਰੋ, AI ਨੂੰ ਪੁੱਛੋ, ਨੇੜਲੇ ਮਕੈਨਿਕ/ਇਲੈਕਟ੍ਰੀਸ਼ਨ/ਆਟੋ ਸਟੋਰ ਲੱਭੋ।', codeSearch:'ਕੋਡ ਖੋਜ / DTC ਅੱਪਲੋਡ', enterCode:'DTC / OBD ਕੋਡ', search:'ਖੋਜੋ', uploadImage:'DTC ਫੋਟੋ ਅੱਪਲੋਡ', askAi:'AI ਨੂੰ ਪੁੱਛੋ', findMechanic:'ਨੇੜੇ ਮਕੈਨਿਕ', symptoms:'ਲੱਛਣ', fixes:'ਹੱਲ', causes:'ਕਾਰਣ', profile:'ਐਡਮਿਨ ਪ੍ਰੋਫਾਈਲ', displayName:'ਨਾਮ', emailPhone:'ਈਮੇਲ / ਫੋਨ', photo:'ਪ੍ਰੋਫਾਈਲ ਫੋਟੋ', location:'ਲੋਕੇਸ਼ਨ ਐਕਸੈੱਸ', locationHelp:'20 ਕਿਮੀ ਦੇ ਅੰਦਰ ਦੁਕਾਨਾਂ ਦਿਖਾਉਣ ਲਈ ਲੋਕੇਸ਼ਨ ਜ਼ਰੂਰੀ ਹੈ।', addShop:'ਦੁਕਾਨ ਜੋੜੋ', shopName:'ਦੁਕਾਨ ਨਾਮ', ownerName:'ਮਾਲਕ', workType:'ਕੰਮ ਦੀ ਕਿਸਮ', mechanic:'ਮਕੈਨਿਕ', electrician:'ਇਲੈਕਟ੍ਰੀਸ਼ਨ', parts:'ਆਟੋ ਪਾਰਟਸ', shopLocation:'ਦੁਕਾਨ ਲੋਕੇਸ਼ਨ', address:'ਲੋਕੇਸ਼ਨ ਤੋਂ ਪਤਾ', pincode:'ਪਿਨ ਕੋਡ', mobile:'ਮੋਬਾਈਲ', showNearby:'Nearby search ਵਿੱਚ ਦਿਖਾਓ', mobileService:'ਮੋਬਾਈਲ ਸਰਵਿਸ', otp:'OTP verification', fee:'ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਫੀਸ', invite:'Invite code', payment:'ਪੇਮੈਂਟ', noFee:'Valid invite code ਨਾਲ ਕੋਈ ਫੀਸ ਨਹੀਂ', buy:'ਪ੍ਰੋਡਕਟ ਖਰੀਦੋ', registered:'Registered shops', dpfTitle:'DPF / DEF ਜਾਣਕਾਰੀ', selectVehicle:'ਵਾਹਨ ਚੁਣੋ', brand:'ਬ੍ਰਾਂਡ', model:'ਮਾਡਲ', year:'ਸਾਲ', fuel:'ਫਿਊਲ', result:'ਨਤੀਜਾ', defUse:'AdBlue / DEF usage', instructions:'ਹਦਾਇਤਾਂ', carInfo:'ਕਾਰ ਜਾਣਕਾਰੀ', trending:'Trending cars', allBrands:'All brands', searchCar:'ਕਾਰ ਖੋਜੋ', myGarage:'My Garage', pilot:'Pilot users get garage history and records.', languageNote:'ਇਸ ਵਰਜ਼ਨ ਵਿੱਚ visible sections ਭਾਸ਼ਾ ਬਦਲਦੇ ਹਨ।', fallback:'Registered shop ਨਾ ਹੋਵੇ ਤਾਂ Google Maps local mechanics ਦਿਖਾਓ।', servicesText:'KTM, KTAG installation, scanner training, scanner buying suggestions, immobilizer coding, Superchips, ECM files, DPF files, UPA Red / Black.' }
-}
+const WHATSAPP_NUMBER = '919949415312'
+const whatsappUrl = service =>
+  `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi DiagHub, I need help with ${service}.`)}`
 
-const dtcKnown = {
-  P0300:{title:'Random/Multiple Cylinder Misfire', symptoms:'Engine shaking, low power, check engine light flashing, poor mileage.', causes:'Spark plugs, coils, injectors, vacuum leak, compression problem.', fixes:'Scan misfire counters, inspect plugs/coils, check vacuum leaks, test fuel pressure.'},
-  P0301:{title:'Cylinder 1 Misfire', symptoms:'Rough idle, vibration, poor acceleration.', causes:'Cylinder 1 spark plug/coil, injector, low compression.', fixes:'Swap coil with another cylinder, inspect plug, test injector and compression.'},
-  P0420:{title:'Catalyst System Efficiency Below Threshold', symptoms:'Check engine light, fuel smell, weak pickup sometimes.', causes:'Bad catalytic converter, oxygen sensor, exhaust leak, rich/lean running.', fixes:'Check live O2 data, repair misfires/leaks first, confirm catalyst before replacement.'},
-  P0171:{title:'System Too Lean Bank 1', symptoms:'Hard start, hesitation, high fuel trims.', causes:'Vacuum leak, dirty MAF, low fuel pressure, intake leak.', fixes:'Smoke test intake, clean/test MAF, check fuel trims and pressure.'},
-  P0299:{title:'Turbo/Supercharger Underboost', symptoms:'Low power, limp mode, smoke, whistle sound.', causes:'Boost leak, weak turbo actuator, clogged DPF, vacuum control issue.', fixes:'Inspect boost pipes, test actuator, check MAP/MAF, read DPF soot load.'},
-  P0401:{title:'EGR Flow Insufficient', symptoms:'Knock, poor mileage, emissions warning.', causes:'Blocked EGR passage, bad EGR valve, sensor issue.', fixes:'Clean EGR passages, test valve command, inspect wiring.'},
-  U0100:{title:'Lost Communication With ECM/PCM', symptoms:'No start, many warning lights, scanner cannot connect.', causes:'CAN wiring, weak battery, blown fuse, ECU power/ground issue.', fixes:'Check battery, ECU fuses, grounds, CAN voltage and module connectors.'},
-  C0035:{title:'Left Front Wheel Speed Sensor Circuit', symptoms:'ABS light, traction control light, ABS disabled.', causes:'Wheel speed sensor, damaged wire, dirty tone ring, bearing issue.', fixes:'Inspect sensor wiring, clean tone ring, compare wheel speed live data.'},
-  B0001:{title:'Driver Frontal Stage 1 Deployment Control', symptoms:'Airbag/SRS warning light.', causes:'Airbag circuit, clock spring, connector, SRS module issue.', fixes:'Do not probe airbags with test light. Use SRS scanner and qualified repair.'}
-}
-
-const fallbackDtc = code => ({
-  title: `${code} diagnostic guide`, symptoms: `${code} can trigger warning lights, reduced performance, limp mode or system-specific alerts depending on vehicle.`, causes: `Possible causes include sensor fault, wiring/connector issue, low voltage, mechanical fault or control module logic.`, fixes: `Confirm with scanner live data and freeze frame, inspect wiring and fuses, check TSB/service manual, then repair and retest.`
-})
-
-const shopsSeed = [
-  {shop:'Mallesh Auto Works', owner:'Mallesh', type:'Mechanic', dist:'4.2 km', mobile:'9876543210', mobileService:true},
-  {shop:'Sri Sai Auto Electricals', owner:'Sai Kumar', type:'Electrician', dist:'6.8 km', mobile:'9876501234', mobileService:true},
-  {shop:'Akshay Auto Parts', owner:'Akshay', type:'Auto parts store', dist:'7.8 km', mobile:'9988776655', mobileService:false}
+const services = [
+  'KTM / KTAG Installation',
+  'Scanner Training',
+  'Scanner Buying Suggestions',
+  'Immobilizer Coding',
+  'Superchips',
+  'ECM Files',
+  'DPF Files',
+  'UPA Red / Black',
 ]
 
-const brands = ['Maruti Suzuki','Hyundai','Tata','Mahindra','Toyota','Kia','Honda','MG','Skoda','Volkswagen','Renault','Nissan','BMW','Mercedes-Benz','Audi','Volvo','Jeep','Ford','Chevrolet','Tesla','BYD','Lexus','Porsche','Land Rover','Jaguar','Mini','Citroen','Fiat','Mitsubishi','Isuzu']
-const trendingCars = ['Maruti Swift','Tata Punch','Hyundai Creta','Maruti Brezza','Mahindra Scorpio-N','Tata Nexon','Maruti WagonR','Kia Seltos','Hyundai Venue','Toyota Innova Hycross']
-const carModels = ['Swift','Baleno','Brezza','Creta','Venue','i20','Nexon','Punch','Harrier','Safari','Scorpio-N','XUV700','Thar','Fortuner','Innova','Seltos','Sonet','City','Amaze','Hector','Slavia','Kushaq','Virtus','Taigun']
+const defaultTrendingCars = [
+  { name: 'Hyundai Creta', segment: 'SUV', fuel: 'Petrol / Diesel', reason: 'High demand compact SUV' },
+  { name: 'Tata Punch', segment: 'Micro SUV', fuel: 'Petrol / CNG / EV', reason: 'Strong city ownership' },
+  { name: 'Maruti Swift', segment: 'Hatchback', fuel: 'Petrol / CNG', reason: 'Popular service volume' },
+  { name: 'Mahindra Scorpio-N', segment: 'SUV', fuel: 'Diesel / Petrol', reason: 'Diesel diagnostics demand' },
+  { name: 'Tata Nexon', segment: 'SUV', fuel: 'Petrol / Diesel / EV', reason: 'Common DPF and sensor queries' },
+  { name: 'Maruti Brezza', segment: 'SUV', fuel: 'Petrol / CNG', reason: 'Fast-moving family SUV' },
+  { name: 'Kia Seltos', segment: 'SUV', fuel: 'Petrol / Diesel', reason: 'Turbo and diesel scan demand' },
+  { name: 'Toyota Innova Hycross', segment: 'MPV', fuel: 'Petrol Hybrid', reason: 'Premium fleet interest' },
+]
 
 const dpfDb = {
-  'Mahindra XUV700': {dpf:'Yes', def:'Yes on many BS6 diesel variants', usage:'Usually around 1–3 L per 1,000 km based on load and driving style.', instructions:'Use ISO 22241 AdBlue/DEF. Do not let DEF run empty. Complete highway regeneration when DPF warning appears.'},
-  'Mahindra Scorpio-N': {dpf:'Yes', def:'Yes on many BS6 diesel variants', usage:'Around 1–3 L per 1,000 km; heavy driving can consume more.', instructions:'Avoid only short trips. Check soot load, differential pressure and NOx/DEF sensor data.'},
-  'Toyota Fortuner': {dpf:'Yes on BS6 diesel', def:'Some variants/generations use DEF systems', usage:'Common estimate 1–2 L per 1,000 km where DEF tank is fitted.', instructions:'Use clean DEF only. Refill before countdown warning. Confirm exact capacity from owner manual.'},
-  'Tata Harrier': {dpf:'Yes on diesel', def:'Usually no separate DEF tank on many Indian variants', usage:'Not applicable if no DEF tank is fitted.', instructions:'For DPF warning, drive at steady speed, check EGR, pressure sensor pipes and correct engine oil grade.'},
-  'Hyundai Creta': {dpf:'Yes on BS6 diesel', def:'Usually no DEF tank on many Indian passenger variants', usage:'Not applicable if no DEF tank is fitted.', instructions:'Short city trips can clog DPF. Check MAF/MAP, boost leaks and DPF soot load.'}
+  'Mahindra XUV700': { dpf: 'Yes', def: 'Yes on many BS6 diesel variants', usage: 'Usually around 1-3 L per 1,000 km based on load and driving style.', instructions: 'Use ISO 22241 AdBlue/DEF. Do not let DEF run empty. Complete highway regeneration when DPF warning appears.' },
+  'Mahindra Scorpio-N': { dpf: 'Yes', def: 'Yes on many BS6 diesel variants', usage: 'Around 1-3 L per 1,000 km; heavy driving can consume more.', instructions: 'Avoid only short trips. Check soot load, differential pressure and NOx/DEF sensor data.' },
+  'Mahindra Thar': { dpf: 'Yes on BS6 diesel', def: 'Variant dependent', usage: 'Confirm by DEF filler cap and owner manual.', instructions: 'Use highway drive cycles for regeneration and verify differential pressure sensor values.' },
+  'Toyota Fortuner': { dpf: 'Yes on BS6 diesel', def: 'Some variants/generations use DEF systems', usage: 'Common estimate 1-2 L per 1,000 km where DEF tank is fitted.', instructions: 'Use clean DEF only. Refill before countdown warning. Confirm exact capacity from owner manual.' },
+  'Toyota Innova Crysta': { dpf: 'Yes on BS6 diesel', def: 'Variant dependent', usage: 'Often 1-2 L per 1,000 km where SCR/DEF is fitted.', instructions: 'Check DPF soot load, exhaust temperature sensors and SCR fault history before forced regeneration.' },
+  'Tata Harrier': { dpf: 'Yes on diesel', def: 'Usually no separate DEF tank on many Indian variants', usage: 'Not applicable if no DEF tank is fitted.', instructions: 'For DPF warning, drive at steady speed, check EGR, pressure sensor pipes and correct engine oil grade.' },
+  'Tata Safari': { dpf: 'Yes on diesel', def: 'Usually no separate DEF tank on many Indian variants', usage: 'Not applicable if no DEF tank is fitted.', instructions: 'Check soot load, EGR operation, differential pressure sensor and exhaust leaks.' },
+  'Tata Nexon': { dpf: 'Yes on diesel', def: 'Usually no DEF tank on many Indian variants', usage: 'Not applicable if no DEF tank is fitted.', instructions: 'Short-trip diesel use can block DPF. Confirm regeneration history and sensor pipe condition.' },
+  'Hyundai Creta': { dpf: 'Yes on BS6 diesel', def: 'Usually no DEF tank on many Indian passenger variants', usage: 'Not applicable if no DEF tank is fitted.', instructions: 'Short city trips can clog DPF. Check MAF/MAP, boost leaks and DPF soot load.' },
+  'Hyundai Venue': { dpf: 'Yes on diesel', def: 'Usually no DEF tank on many Indian passenger variants', usage: 'Not applicable if no DEF tank is fitted.', instructions: 'Verify DPF pressure, EGR flow and turbo boost data before parts replacement.' },
+  'Kia Seltos': { dpf: 'Yes on diesel', def: 'Usually no DEF tank on many Indian passenger variants', usage: 'Not applicable if no DEF tank is fitted.', instructions: 'Check soot load, EGR, pressure pipes and intake leaks during diagnosis.' },
+  'Kia Sonet': { dpf: 'Yes on diesel', def: 'Usually no DEF tank on many Indian passenger variants', usage: 'Not applicable if no DEF tank is fitted.', instructions: 'Use scanner live data for DPF load and confirm successful regeneration.' },
+  'MG Hector': { dpf: 'Yes on diesel', def: 'Variant dependent', usage: 'Confirm by VIN, DEF cap and owner manual.', instructions: 'Check SCR/NOx and DPF data together when DEF warnings appear.' },
+  'Jeep Compass': { dpf: 'Yes on diesel', def: 'Variant dependent', usage: 'Confirm exact system by model year.', instructions: 'Use correct low-ash oil and verify pressure sensor pipe condition.' },
 }
 
-function App(){
-  const [lang,setLang]=useState('en'); const t=LANGS[lang]
-  const [tab,setTab]=useState('home'); const [code,setCode]=useState('P0301'); const [user,setUser]=useState(null); const [shops,setShops]=useState(shopsSeed); const [carQuery,setCarQuery]=useState(''); const [vehicle,setVehicle]=useState('Mahindra XUV700')
-  const cleanCode=code.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); const dtc=cleanCode? (dtcKnown[cleanCode]||fallbackDtc(cleanCode)) : null
-  const filteredModels=carModels.filter(x=>(x+' '+brands.join(' ')).toLowerCase().includes(carQuery.toLowerCase()) || x.toLowerCase().includes(carQuery.toLowerCase()))
-  const nav=['home','admin','nearby','cars','dpf','services','history']
-  function signup(e){e.preventDefault(); const fd=new FormData(e.currentTarget); setUser({name:fd.get('name')||'DiagHub Admin', contact:fd.get('contact')||'admin@diaghub.in', location:'Location permission requested'}); setTab('admin')}
-  function addShop(e){e.preventDefault(); const fd=new FormData(e.currentTarget); setShops([{shop:fd.get('shop'), owner:fd.get('owner'), type:fd.get('type'), mobile:fd.get('mobile'), dist:'New · within 20 km', mobileService:fd.get('mobileService')==='on'},...shops]); e.currentTarget.reset()}
-  function getLocation(){ if(navigator.geolocation){ navigator.geolocation.getCurrentPosition(()=>setUser(u=>({...u, location:'Location access allowed'})),()=>setUser(u=>({...u, location:'Location permission denied'}))) } }
-  const dpfResult=dpfDb[vehicle]||{dpf:'Depends on model year and fuel type',def:'Depends on market/variant',usage:'Use VIN/owner manual to confirm exact DEF tank and usage.',instructions:'Select diesel fuel data, check under fuel cap/DEF cap, scan DPF soot load and SCR/NOx values.'}
+const genericDpf = { dpf: 'Depends on model year and fuel type', def: 'Depends on market/variant', usage: 'Use VIN/owner manual to confirm exact DEF tank and usage.', instructions: 'Select diesel fuel data, check for DEF cap, scan DPF soot load, differential pressure, SCR and NOx values.' }
+const fuelLabels = {
+  en: ['Diesel', 'Petrol', 'CNG', 'Hybrid', 'EV'],
+  hi: ['डीजल', 'पेट्रोल', 'CNG', 'हाइब्रिड', 'EV'],
+  te: ['డీజిల్', 'పెట్రోల్', 'CNG', 'హైబ్రిడ్', 'EV'],
+}
+
+const shopsSeed = [
+  { shop: 'Mallesh Auto Works', owner: 'Mallesh', type: 'Mechanic', dist: '4.2 km', mobile: '9876543210', mobileService: true },
+  { shop: 'Sri Sai Auto Electricals', owner: 'Sai Kumar', type: 'Electrician', dist: '6.8 km', mobile: '9876501234', mobileService: true },
+  { shop: 'Akshay Auto Parts', owner: 'Akshay', type: 'Auto parts store', dist: '7.8 km', mobile: '9988776655', mobileService: false },
+]
+
+function localizeDpfResult(result, language) {
+  if (language === 'hi') return {
+    dpf: result.dpf.startsWith('Yes') ? 'हाँ' : 'मॉडल वर्ष और ईंधन प्रकार पर निर्भर',
+    def: result.def.includes('no') ? 'कई भारतीय वेरिएंट में अलग DEF टैंक नहीं होता' : 'BS6 डीजल वेरिएंट में SCR/DEF सिस्टम हो सकता है',
+    usage: result.usage.includes('Not applicable') ? 'अगर DEF टैंक नहीं है तो लागू नहीं।' : 'आम तौर पर 1-3 लीटर प्रति 1,000 किमी, ड्राइविंग स्टाइल और लोड पर निर्भर।',
+    instructions: 'सही लो-ऐश इंजन ऑयल और ISO 22241 DEF इस्तेमाल करें। DPF चेतावनी पर हाईवे रीजेनरेशन पूरा करें और स्कैनर से soot load, differential pressure, SCR/NOx डेटा जांचें.',
+  }
+  if (language === 'te') return {
+    dpf: result.dpf.startsWith('Yes') ? 'అవును' : 'మోడల్ సంవత్సరం మరియు ఫ్యూయల్ రకంపై ఆధారపడి ఉంటుంది',
+    def: result.def.includes('no') ? 'చాలా భారతీయ వేరియంట్లలో ప్రత్యేక DEF ట్యాంక్ ఉండదు' : 'BS6 డీజిల్ వేరియంట్లలో SCR/DEF సిస్టమ్ ఉండవచ్చు',
+    usage: result.usage.includes('Not applicable') ? 'DEF ట్యాంక్ లేకపోతే వర్తించదు.' : 'సాధారణంగా 1,000 కిమీకి 1-3 లీటర్లు, డ్రైవింగ్ స్టైల్ మరియు లోడ్‌పై ఆధారపడి ఉంటుంది.',
+    instructions: 'సరైన లో-యాష్ ఇంజిన్ ఆయిల్ మరియు ISO 22241 DEF వాడండి. DPF వార్నింగ్ వస్తే హైవే రీజెనరేషన్ పూర్తి చేసి scanner లో soot load, differential pressure, SCR/NOx డేటా చెక్ చేయండి.',
+  }
+  return result
+}
+
+function localizeCarMeta(value = '', language) {
+  if (language === 'hi') return value
+    .replaceAll('Micro SUV', 'माइक्रो SUV')
+    .replaceAll('Hatchback', 'हैचबैक')
+    .replaceAll('MPV', 'MPV')
+    .replaceAll('Petrol', 'पेट्रोल')
+    .replaceAll('Diesel', 'डीजल')
+    .replaceAll('Hybrid', 'हाइब्रिड')
+  if (language === 'te') return value
+    .replaceAll('Micro SUV', 'మైక్రో SUV')
+    .replaceAll('Hatchback', 'హ్యాచ్‌బ్యాక్')
+    .replaceAll('MPV', 'MPV')
+    .replaceAll('Petrol', 'పెట్రోల్')
+    .replaceAll('Diesel', 'డీజిల్')
+    .replaceAll('Hybrid', 'హైబ్రిడ్')
+  return value
+}
+
+const LANGS = {
+  en: {
+    name: 'English', home: 'Home', admin: 'Admin', nearby: 'Nearby', cars: 'Cars', dpf: 'DPF/DEF', services: 'Services', history: 'History',
+    login: 'Sign in', signup: 'Sign up', logout: 'Log out', heroTitle: 'Professional vehicle diagnostics, local help and service support in one place.',
+    heroText: 'Search DTC codes, understand faults in your language, find nearby mechanics, manage shops, and contact DiagHub for ECU, scanner and DPF work.',
+    heroTag: 'Live diagnostics workspace for owners and workshops', startDiagnosis: 'Start diagnosis', codeSearch: 'DTC code lookup', enterCode: 'Enter DTC / OBD code',
+    search: 'Search', searching: 'Searching...', uploadImage: 'Upload DTC image', askAi: 'Ask AI', findMechanic: 'Find mechanic nearby', symptoms: 'Symptoms',
+    fixes: 'Next step', causes: 'Causes', profile: 'Admin Profile', displayName: 'Display name', emailPhone: 'Email or phone number', password: 'Password',
+    photo: 'Profile picture', location: 'Location access', locationHelp: 'Location is used to show shops within 20 km.', addShop: 'Add Shop', shopName: 'Shop name',
+    ownerName: 'Owner name', workType: 'Work type', mechanic: 'Mechanic', electrician: 'Electrician', parts: 'Auto parts store', shopLocation: 'Shop location',
+    address: 'Address from location', pincode: 'Pin code', mobile: 'Mobile number', showNearby: 'Display my shop in nearby search',
+    mobileService: 'Mobile service available', fee: 'Registration fee', invite: 'Invite code', payment: 'Submit for review', noFee: 'No fee with valid invite code',
+    registered: 'Registered shops', dpfTitle: 'DPF / DEF Information', selectVehicle: 'Select vehicle', result: 'Result', defUse: 'AdBlue / DEF usage',
+    instructions: 'Instructions', carInfo: 'Car Information', trending: 'Trending cars', allBrands: 'All car brands', searchCar: 'Search brand, model or fuel',
+    models: 'Models', myGarage: 'My Garage', pilot: 'Saved vehicles, service notes and diagnosis records will appear here.', fallback: 'If no registered shop is found, use Maps results until DiagHub verifies local partners.',
+    contactMe: 'Contact me', liveSource: 'Live source', fallbackSource: 'Demo trend list', liveApiNote: 'Connect a sales/search API with VITE_TRENDING_CARS_API for real-time trending cars.',
+    serviceIntro: 'Contact DiagHub directly for these professional services.', invalidCode: 'Enter a valid 5-character OBD code, for example P0301, C0035, B0001, or U0100.',
+    localDtc: 'Live provider not connected yet. Showing DiagHub diagnostic guidance.', remoteDtc: 'Live provider result loaded.', shopVisit: 'Shop visit',
+    signedIn: 'Signed in', adminHelp: 'This panel is ready to connect to Supabase Auth or Firebase OTP for production sign-in.', garageEmpty: 'Saved vehicles, past DTC searches, uploaded images, shop visits, bills and reminders will appear here.',
+    make: 'Make', year: 'Year', fuel: 'Fuel', note: 'Note',
+  },
+  hi: {
+    name: 'हिंदी', home: 'होम', admin: 'एडमिन', nearby: 'नज़दीक', cars: 'कारें', dpf: 'DPF/DEF', services: 'सेवाएं', history: 'इतिहास',
+    login: 'साइन इन', signup: 'साइन अप', logout: 'लॉग आउट', heroTitle: 'वाहन डायग्नोस्टिक्स, नज़दीकी सहायता और सर्विस सपोर्ट एक जगह।',
+    heroText: 'DTC कोड खोजें, अपनी भाषा में खराबी समझें, नज़दीकी मैकेनिक खोजें, दुकानें मैनेज करें और ECU, स्कैनर व DPF काम के लिए DiagHub से संपर्क करें।',
+    heroTag: 'मालिकों और वर्कशॉप के लिए लाइव डायग्नोस्टिक वर्कस्पेस', startDiagnosis: 'डायग्नोसिस शुरू करें', codeSearch: 'DTC कोड खोज', enterCode: 'DTC / OBD कोड डालें',
+    search: 'खोजें', searching: 'खोज रहे हैं...', uploadImage: 'DTC फोटो अपलोड', askAi: 'AI से पूछें', findMechanic: 'नज़दीकी मैकेनिक खोजें', symptoms: 'लक्षण',
+    fixes: 'अगला कदम', causes: 'कारण', profile: 'एडमिन प्रोफाइल', displayName: 'नाम', emailPhone: 'ईमेल या फोन नंबर', password: 'पासवर्ड',
+    photo: 'प्रोफाइल फोटो', location: 'लोकेशन एक्सेस', locationHelp: '20 किमी के अंदर दुकानें दिखाने के लिए लोकेशन इस्तेमाल होती है।', addShop: 'दुकान जोड़ें', shopName: 'दुकान का नाम',
+    ownerName: 'मालिक का नाम', workType: 'काम का प्रकार', mechanic: 'मैकेनिक', electrician: 'इलेक्ट्रिशियन', parts: 'ऑटो पार्ट्स स्टोर', shopLocation: 'दुकान लोकेशन',
+    address: 'लोकेशन से पता', pincode: 'पिन कोड', mobile: 'मोबाइल नंबर', showNearby: 'मेरी दुकान नज़दीकी खोज में दिखाएं',
+    mobileService: 'मोबाइल सर्विस उपलब्ध', fee: 'रजिस्ट्रेशन फीस', invite: 'इनवाइट कोड', payment: 'रिव्यू के लिए भेजें', noFee: 'वैध इनवाइट कोड पर कोई फीस नहीं',
+    registered: 'रजिस्टर्ड दुकानें', dpfTitle: 'DPF / DEF जानकारी', selectVehicle: 'वाहन चुनें', result: 'परिणाम', defUse: 'AdBlue / DEF उपयोग',
+    instructions: 'निर्देश', carInfo: 'कार जानकारी', trending: 'ट्रेंडिंग कारें', allBrands: 'सभी कार ब्रांड', searchCar: 'ब्रांड, मॉडल या ईंधन खोजें',
+    models: 'मॉडल', myGarage: 'मेरा गैरेज', pilot: 'सेव वाहन, सर्विस नोट्स और डायग्नोसिस रिकॉर्ड यहां दिखेंगे।', fallback: 'रजिस्टर्ड दुकान न मिले तो DiagHub पार्टनर वेरिफाई होने तक Maps रिजल्ट इस्तेमाल करें।',
+    contactMe: 'मुझसे संपर्क करें', liveSource: 'लाइव सोर्स', fallbackSource: 'डेमो ट्रेंड सूची', liveApiNote: 'रीयल-टाइम ट्रेंडिंग कारों के लिए VITE_TRENDING_CARS_API से सेल्स/सर्च API जोड़ें।',
+    serviceIntro: 'इन प्रोफेशनल सेवाओं के लिए DiagHub से सीधे संपर्क करें।', invalidCode: 'सही 5 अक्षर का OBD कोड डालें, जैसे P0301, C0035, B0001 या U0100।',
+    localDtc: 'लाइव प्रोवाइडर अभी कनेक्ट नहीं है। DiagHub गाइडेंस दिखा रहे हैं।', remoteDtc: 'लाइव प्रोवाइडर परिणाम लोड हुआ।', shopVisit: 'दुकान विजिट',
+    signedIn: 'साइन इन हो गया', adminHelp: 'प्रोडक्शन साइन-इन के लिए यह पैनल Supabase Auth या Firebase OTP से जुड़ सकता है।', garageEmpty: 'सेव वाहन, पुराने DTC, अपलोड, दुकान विजिट, बिल और रिमाइंडर यहां दिखेंगे।',
+    make: 'ब्रांड', year: 'वर्ष', fuel: 'ईंधन', note: 'नोट',
+  },
+  te: {
+    name: 'తెలుగు', home: 'హోమ్', admin: 'అడ్మిన్', nearby: 'దగ్గరలో', cars: 'కార్లు', dpf: 'DPF/DEF', services: 'సర్వీసులు', history: 'హిస్టరీ',
+    login: 'సైన్ ఇన్', signup: 'సైన్ అప్', logout: 'లాగౌట్', heroTitle: 'వాహన డయాగ్నోస్టిక్స్, స్థానిక సహాయం, సర్వీస్ సపోర్ట్ అన్నీ ఒకే చోట.',
+    heroText: 'DTC కోడ్లు వెతకండి, మీ భాషలో ఫాల్ట్ అర్థం చేసుకోండి, దగ్గరలో మెకానిక్‌లను కనుగొనండి, షాపులను నిర్వహించండి, ECU, స్కానర్, DPF పనుల కోసం DiagHub ని సంప్రదించండి.',
+    heroTag: 'యజమానులు మరియు వర్క్‌షాప్‌ల కోసం లైవ్ డయాగ్నోస్టిక్ వర్క్‌స్పేస్', startDiagnosis: 'డయాగ్నోసిస్ ప్రారంభించండి', codeSearch: 'DTC కోడ్ లుకప్', enterCode: 'DTC / OBD కోడ్ నమోదు చేయండి',
+    search: 'వెతకండి', searching: 'వెతుకుతోంది...', uploadImage: 'DTC ఫోటో అప్‌లోడ్', askAi: 'AI ని అడగండి', findMechanic: 'దగ్గరలో మెకానిక్ కనుగొనండి', symptoms: 'లక్షణాలు',
+    fixes: 'తదుపరి చర్య', causes: 'కారణాలు', profile: 'అడ్మిన్ ప్రొఫైల్', displayName: 'పేరు', emailPhone: 'ఈమెయిల్ లేదా ఫోన్', password: 'పాస్‌వర్డ్',
+    photo: 'ప్రొఫైల్ ఫోటో', location: 'లోకేషన్ యాక్సెస్', locationHelp: '20 కిమీ లోపు షాపులను చూపడానికి లోకేషన్ ఉపయోగిస్తాం.', addShop: 'షాప్ జోడించండి', shopName: 'షాప్ పేరు',
+    ownerName: 'ఓనర్ పేరు', workType: 'పని రకం', mechanic: 'మెకానిక్', electrician: 'ఎలక్ట్రిషియన్', parts: 'ఆటో పార్ట్స్ స్టోర్', shopLocation: 'షాప్ లోకేషన్',
+    address: 'లోకేషన్ ద్వారా అడ్రస్', pincode: 'పిన్ కోడ్', mobile: 'మొబైల్ నంబర్', showNearby: 'నా షాప్ దగ్గరలో సెర్చ్‌లో చూపండి',
+    mobileService: 'మొబైల్ సర్వీస్ ఉంది', fee: 'రిజిస్ట్రేషన్ ఫీజు', invite: 'ఇన్వైట్ కోడ్', payment: 'రివ్యూ కోసం పంపండి', noFee: 'సరైన ఇన్వైట్ కోడ్ ఉంటే ఫీజు లేదు',
+    registered: 'రిజిస్టర్ షాపులు', dpfTitle: 'DPF / DEF సమాచారం', selectVehicle: 'వాహనం ఎంచుకోండి', result: 'ఫలితం', defUse: 'AdBlue / DEF వినియోగం',
+    instructions: 'సూచనలు', carInfo: 'కారు సమాచారం', trending: 'ట్రెండింగ్ కార్లు', allBrands: 'అన్ని కార్ బ్రాండ్స్', searchCar: 'బ్రాండ్, మోడల్ లేదా ఫ్యూయల్ వెతకండి',
+    models: 'మోడల్స్', myGarage: 'మై గ్యారేజ్', pilot: 'సేవ్ వాహనాలు, సర్వీస్ నోట్స్, డయాగ్నోసిస్ రికార్డ్స్ ఇక్కడ కనిపిస్తాయి.', fallback: 'రిజిస్టర్ షాప్ లేకపోతే DiagHub పార్టనర్లు వెరిఫై అయ్యే వరకు Maps రిజల్ట్స్ వాడండి.',
+    contactMe: 'నన్ను సంప్రదించండి', liveSource: 'లైవ్ సోర్స్', fallbackSource: 'డెమో ట్రెండ్ లిస్ట్', liveApiNote: 'రీయల్ టైమ్ ట్రెండింగ్ కార్ల కోసం VITE_TRENDING_CARS_API తో సేల్స్/సెర్చ్ API కనెక్ట్ చేయండి.',
+    serviceIntro: 'ఈ ప్రొఫెషనల్ సర్వీసుల కోసం DiagHub ని నేరుగా సంప్రదించండి.', invalidCode: 'P0301, C0035, B0001 లేదా U0100 లాంటి సరైన 5 అక్షరాల OBD కోడ్ నమోదు చేయండి.',
+    localDtc: 'లైవ్ ప్రొవైడర్ ఇంకా కనెక్ట్ కాలేదు. DiagHub గైడెన్స్ చూపిస్తున్నాం.', remoteDtc: 'లైవ్ ప్రొవైడర్ రిజల్ట్ లోడ్ అయింది.', shopVisit: 'షాప్ విజిట్',
+    signedIn: 'సైన్ ఇన్ అయింది', adminHelp: 'ప్రొడక్షన్ సైన్-ఇన్ కోసం ఈ ప్యానెల్ Supabase Auth లేదా Firebase OTP కి కనెక్ట్ చేయవచ్చు.', garageEmpty: 'సేవ్ వాహనాలు, పాత DTCలు, అప్‌లోడ్లు, షాప్ విజిట్లు, బిల్లులు, రిమైండర్లు ఇక్కడ కనిపిస్తాయి.',
+    make: 'బ్రాండ్', year: 'సంవత్సరం', fuel: 'ఫ్యూయల్', note: 'నోట్',
+  },
+}
+
+const CODE_PATTERN = /^[PBCU][0-9A-F]{4}$/
+
+function normalizeRemoteDtc(payload) {
+  if (!payload?.description && !payload?.explanation && !payload?.causes?.length) return null
+  return {
+    title: payload.description || payload.definition || payload.name,
+    summary: payload.explanation || 'Provider returned a match for this DTC code.',
+    causes: Array.isArray(payload.causes) && payload.causes.length ? payload.causes : ['Confirm with scanner live data and vehicle service information'],
+  }
+}
+
+function App() {
+  const [lang, setLang] = useState('en')
+  const t = LANGS[lang]
+  const [tab, setTab] = useState('home')
+  const [code, setCode] = useState('P0301')
+  const [authMode, setAuthMode] = useState('login')
+  const [user, setUser] = useState(null)
+  const [shops, setShops] = useState(shopsSeed)
+  const [carQuery, setCarQuery] = useState('')
+  const [vehicle, setVehicle] = useState('Mahindra XUV700')
+  const [remoteDtc, setRemoteDtc] = useState(null)
+  const [dtcStatus, setDtcStatus] = useState('idle')
+  const [trendingCars, setTrendingCars] = useState(defaultTrendingCars)
+  const [trendSource, setTrendSource] = useState('fallback')
+  const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)
+  const validCode = CODE_PATTERN.test(cleanCode)
+  const nav = ['home', 'admin', 'nearby', 'cars', 'dpf', 'services', 'history']
+
+  useEffect(() => {
+    const endpoint = import.meta.env.VITE_TRENDING_CARS_API
+    if (!endpoint) return
+    fetch(endpoint)
+      .then(result => result.ok ? result.json() : Promise.reject(new Error('trend_failed')))
+      .then(payload => {
+        const cars = Array.isArray(payload) ? payload : payload.cars
+        if (Array.isArray(cars) && cars.length) {
+          setTrendingCars(cars.map(car => typeof car === 'string' ? { name: car } : car).slice(0, 12))
+          setTrendSource('live')
+        }
+      })
+      .catch(() => setTrendSource('fallback'))
+  }, [])
+
+  const dtc = cleanCode && validCode ? diagnosisFor(cleanCode, lang, normalizeRemoteDtc(remoteDtc)) : null
+  const allModels = useMemo(() => [...new Set([...Object.keys(dpfDb), 'Maruti Swift', 'Maruti Brezza', 'Hyundai i20', 'Honda City', 'Skoda Slavia', 'Volkswagen Virtus', 'BYD Atto 3'])], [])
+  const filteredModels = allModels.filter(model => model.toLowerCase().includes(carQuery.toLowerCase()))
+  const dpfResult = dpfDb[vehicle] || genericDpf
+  const visibleDpf = localizeDpfResult(dpfResult, lang)
+
+  function authenticate(e) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    setUser({
+      name: fd.get('name') || 'DiagHub Admin',
+      contact: fd.get('contact') || 'admin@diaghub.in',
+      location: 'Location permission not requested',
+    })
+    setTab('admin')
+  }
+
+  function addShop(e) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    setShops([{ shop: fd.get('shop'), owner: fd.get('owner'), type: fd.get('type'), mobile: fd.get('mobile'), dist: 'New - within 20 km', mobileService: fd.get('mobileService') === 'on' }, ...shops])
+    e.currentTarget.reset()
+  }
+
+  function getLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        () => setUser(u => ({ ...u, location: 'Location access allowed' })),
+        () => setUser(u => ({ ...u, location: 'Location permission denied' })),
+      )
+    }
+  }
+
+  async function searchDtc(e) {
+    e.preventDefault()
+    setRemoteDtc(null)
+    if (!validCode) { setDtcStatus(cleanCode ? 'invalid' : 'idle'); return }
+    setDtcStatus('loading')
+    try {
+      const result = await fetch(`/api/dtc/${encodeURIComponent(cleanCode)}?lang=${encodeURIComponent(lang)}`)
+      if (!result.ok) throw new Error('lookup_failed')
+      const payload = await result.json()
+      setRemoteDtc(payload)
+      setDtcStatus(['carapi', 'gemini'].includes(payload.source) ? 'remote' : 'local')
+    } catch {
+      setDtcStatus('local')
+    }
+  }
 
   return <div className="app">
-    <header className="topbar"><div className="brand"><span>⚙️</span><b>DiagHub</b></div><nav>{nav.map(n=><button key={n} onClick={()=>setTab(n)} className={tab===n?'active':''}>{t[n]}</button>)}</nav><select value={lang} onChange={e=>setLang(e.target.value)}>{Object.entries(LANGS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select></header>
+    <header className="topbar">
+      <button className="brand" onClick={() => setTab('home')}><span>DH</span><b>DiagHub</b></button>
+      <nav>{nav.map(n => <button key={n} onClick={() => setTab(n)} className={tab === n ? 'active' : ''}>{t[n]}</button>)}</nav>
+      <select aria-label="Language" value={lang} onChange={e => setLang(e.target.value)}>{Object.entries(LANGS).map(([k, v]) => <option key={k} value={k}>{v.name}</option>)}</select>
+    </header>
     <main>
-      {tab==='home'&&<section className="hero"><div><p className="kicker">Uber + Google Maps + ChatGPT for diagnostics</p><h1>{t.heroTitle}</h1><p>{t.heroText}</p><div className="heroActions"><button onClick={()=>setTab('nearby')}>{t.findMechanic}</button><button onClick={()=>setTab('admin')} className="secondary">{t.addShop}</button></div></div><DtcCard t={t} code={code} setCode={setCode} dtc={dtc}/></section>}
-      {tab==='admin'&&<section className="grid2"><div className="card"><h2>{user?t.profile:t.login+' / '+t.signup}</h2>{!user?<form onSubmit={signup} className="form"><input name="name" placeholder={t.displayName}/><input name="contact" placeholder={t.emailPhone}/><button>{t.signup}</button><p className="note">Email/OTP backend can be connected with Supabase Auth or Firebase OTP.</p></form>:<div className="profile"><div className="avatar">{user.name[0]}</div><h3>{user.name}</h3><p>{user.contact}</p><p>{user.location}</p><button onClick={getLocation}>{t.location}</button><button className="secondary" onClick={()=>setUser(null)}>{t.logout}</button><p className="note">{t.locationHelp}</p></div>}</div><div className="card"><h2>{t.addShop}</h2><form onSubmit={addShop} className="form"><input name="shop" placeholder={t.shopName} required/><input name="owner" placeholder={t.ownerName} required/><select name="type"><option>{t.mechanic}</option><option>{t.electrician}</option><option>{t.parts}</option></select><input name="location" placeholder={t.shopLocation}/><input name="address" placeholder={t.address}/><input name="pin" placeholder={t.pincode}/><input name="mobile" placeholder={t.mobile} required/><label><input type="checkbox" name="show" defaultChecked/> {t.showNearby}</label><label><input type="checkbox" name="mobileService"/> {t.mobileService}</label><input name="invite" placeholder={t.invite}/><div className="fee">₹250 · {t.noFee}</div><button>{t.payment}</button></form></div></section>}
-      {tab==='nearby'&&<section><SectionTitle title={t.nearby} text={`${t.findMechanic}. ${t.fallback}`}/><div className="shopGrid">{shops.map(s=><div className="card shop" key={s.shop}><h3>{s.shop}</h3><p>{s.type} · {s.dist}</p><p>{s.owner} · {s.mobile}</p><span>{s.mobileService?t.mobileService:'Shop visit'}</span></div>)}</div></section>}
-      {tab==='cars'&&<section><SectionTitle title={t.carInfo} text="Search global brands, models, fuel type, diagnostics focus and trending cars."/><input className="wideSearch" value={carQuery} onChange={e=>setCarQuery(e.target.value)} placeholder={t.searchCar}/><h3>{t.trending}</h3><div className="cards">{trendingCars.map(c=><div className="mini" key={c}>🚗 {c}</div>)}</div><h3>{t.allBrands}</h3><div className="cards">{brands.map(b=><div className="mini" key={b}>{b}</div>)}</div><h3>Models</h3><div className="cards">{filteredModels.map(m=><div className="mini" key={m}>{m}</div>)}</div><p className="note">For live top-selling car cards, connect a car-market/sales API or update from a monthly admin list.</p></section>}
-      {tab==='dpf'&&<section><SectionTitle title={t.dpfTitle} text="Select brand/model/year/fuel to show DPF, DEF and AdBlue guidance."/><div className="card form"><label>{t.selectVehicle}<select value={vehicle} onChange={e=>setVehicle(e.target.value)}>{Object.keys(dpfDb).map(v=><option key={v}>{v}</option>)}</select></label><div className="result"><h3>{t.result}: {vehicle}</h3><p><b>DPF:</b> {dpfResult.dpf}</p><p><b>DEF:</b> {dpfResult.def}</p><p><b>{t.defUse}:</b> {dpfResult.usage}</p><p><b>{t.instructions}:</b> {dpfResult.instructions}</p></div></div></section>}
-      {tab==='services'&&<section><SectionTitle title={t.services} text={t.servicesText}/><div className="cards">{['KTM / KTAG Installation','Scanner Training','Scanner Buying Suggestions','Immobilizer Coding','Superchips','ECM Files','DPF Files','UPA Red / Black'].map(x=><div className="mini service" key={x}>{x}<button>{t.askAi}</button></div>)}</div></section>}
-      {tab==='history'&&<section><SectionTitle title={t.myGarage} text={t.pilot}/><div className="card"><h3>{t.history}</h3><p>Saved vehicles, past DTC searches, uploaded images, shop visits, bills and service reminders will appear here.</p></div></section>}
-    </main><nav className="bottom">{nav.slice(0,5).map(n=><button key={n} onClick={()=>setTab(n)} className={tab===n?'active':''}>{t[n]}</button>)}</nav>
+      {tab === 'home' && <section className="hero">
+        <div className="heroCopy">
+          <p className="kicker">{t.heroTag}</p>
+          <h1>{t.heroTitle}</h1>
+          <p>{t.heroText}</p>
+          <div className="heroActions"><button onClick={() => setTab('nearby')}>{t.findMechanic}</button><button onClick={() => setTab('admin')} className="secondary">{t.addShop}</button></div>
+        </div>
+        <DtcCard t={t} code={code} setCode={setCode} dtc={dtc} status={dtcStatus} onSearch={searchDtc} />
+      </section>}
+
+      {tab === 'admin' && <section className="grid2">
+        <div className="card authCard">
+          <div className="segmented"><button className={authMode === 'login' ? 'active' : ''} onClick={() => setAuthMode('login')}>{t.login}</button><button className={authMode === 'signup' ? 'active' : ''} onClick={() => setAuthMode('signup')}>{t.signup}</button></div>
+          <h2>{user ? t.profile : authMode === 'login' ? t.login : t.signup}</h2>
+          {!user ? <form onSubmit={authenticate} className="form">
+            {authMode === 'signup' && <input name="name" placeholder={t.displayName} />}
+            <input name="contact" placeholder={t.emailPhone} />
+            <input name="password" type="password" placeholder={t.password} />
+            <button>{authMode === 'login' ? t.login : t.signup}</button>
+            <p className="note">{t.adminHelp}</p>
+          </form> : <div className="profile">
+            <div className="avatar">{user.name[0]}</div><h3>{user.name}</h3><p>{user.contact}</p><p>{t.signedIn} - {user.location}</p>
+            <button onClick={getLocation}>{t.location}</button><button className="secondary" onClick={() => setUser(null)}>{t.logout}</button><p className="note">{t.locationHelp}</p>
+          </div>}
+        </div>
+        <div className="card"><h2>{t.addShop}</h2><form onSubmit={addShop} className="form">
+          <input name="shop" placeholder={t.shopName} required /><input name="owner" placeholder={t.ownerName} required />
+          <select name="type"><option>{t.mechanic}</option><option>{t.electrician}</option><option>{t.parts}</option></select>
+          <input name="location" placeholder={t.shopLocation} /><input name="address" placeholder={t.address} /><input name="pin" placeholder={t.pincode} /><input name="mobile" placeholder={t.mobile} required />
+          <label><input type="checkbox" name="show" defaultChecked /> {t.showNearby}</label><label><input type="checkbox" name="mobileService" /> {t.mobileService}</label>
+          <input name="invite" placeholder={t.invite} /><div className="fee">₹250 - {t.noFee}</div><button>{t.payment}</button>
+        </form></div>
+      </section>}
+
+      {tab === 'nearby' && <section><SectionTitle title={t.nearby} text={`${t.findMechanic}. ${t.fallback}`} /><div className="shopGrid">{shops.map(s => <div className="card shop" key={s.shop}><h3>{s.shop}</h3><p>{s.type} - {s.dist}</p><p>{s.owner} - {s.mobile}</p><span>{s.mobileService ? t.mobileService : t.shopVisit}</span></div>)}</div></section>}
+
+      {tab === 'cars' && <section><SectionTitle title={t.carInfo} text={t.liveApiNote} /><input className="wideSearch" value={carQuery} onChange={e => setCarQuery(e.target.value)} placeholder={t.searchCar} />
+        <h3>{t.trending} <span className="sourceTag">{trendSource === 'live' ? t.liveSource : t.fallbackSource}</span></h3>
+        <div className="carGrid">{trendingCars.map(c => <div className="carTile" key={c.name}><strong>{c.name}</strong><span>{localizeCarMeta(c.segment || t.models, lang)}</span><p>{localizeCarMeta(c.fuel || c.reason || t.carInfo, lang)}</p></div>)}</div>
+        <h3>{t.allBrands}</h3><div className="cards">{vehicleMakes.car.map(b => <div className="mini" key={b}>{b}</div>)}</div>
+        <h3>{t.models}</h3><div className="cards">{filteredModels.map(m => <div className="mini" key={m}>{m}</div>)}</div>
+      </section>}
+
+      {tab === 'dpf' && <section><SectionTitle title={t.dpfTitle} text={`${t.selectVehicle}: ${t.make}, ${t.year}, ${t.fuel}`} /><div className="card form vehiclePanel">
+        <label>{t.selectVehicle}<select value={vehicle} onChange={e => setVehicle(e.target.value)}>{Object.keys(dpfDb).map(v => <option key={v}>{v}</option>)}</select></label>
+        <label>{t.year}<select defaultValue={vehicleYears[0]}>{vehicleYears.slice(0, 18).map(y => <option key={y}>{y}</option>)}</select></label>
+        <label>{t.fuel}<select defaultValue={(fuelLabels[lang] || fuelLabels.en)[0]}>{(fuelLabels[lang] || fuelLabels.en).map(fuel => <option key={fuel}>{fuel}</option>)}</select></label>
+        <div className="result"><h3>{t.result}: {vehicle}</h3><p><b>DPF:</b> {visibleDpf.dpf}</p><p><b>DEF:</b> {visibleDpf.def}</p><p><b>{t.defUse}:</b> {visibleDpf.usage}</p><p><b>{t.instructions}:</b> {visibleDpf.instructions}</p><p className="note">{t.note}: {localizeDpfResult(genericDpf, lang).instructions}</p></div>
+      </div></section>}
+
+      {tab === 'services' && <section><SectionTitle title={t.services} text={t.serviceIntro} /><div className="cards servicesGrid">{services.map(service => <div className="mini service" key={service}><strong>{service}</strong><a className="buttonLink" href={whatsappUrl(service)} target="_blank" rel="noreferrer">{t.contactMe}</a></div>)}</div></section>}
+
+      {tab === 'history' && <section><SectionTitle title={t.myGarage} text={t.pilot} /><div className="card"><h3>{t.history}</h3><p>{t.garageEmpty}</p></div></section>}
+    </main>
+    <nav className="bottom">{nav.slice(0, 5).map(n => <button key={n} onClick={() => setTab(n)} className={tab === n ? 'active' : ''}>{t[n]}</button>)}</nav>
   </div>
 }
-function DtcCard({t,code,setCode,dtc}){return <div className="card dtc"><h2>{t.codeSearch}</h2><div className="searchBox"><input value={code} onChange={e=>setCode(e.target.value)} placeholder={t.enterCode}/><button>{t.search}</button></div><div className="upload">📷 {t.uploadImage}</div>{dtc&&<div className="result"><h3>{dtc.title}</h3><p><b>{t.symptoms}:</b> {dtc.symptoms}</p><p><b>{t.causes}:</b> {dtc.causes}</p><p><b>{t.fixes}:</b> {dtc.fixes}</p><button>{t.askAi}</button></div>}</div>}
-function SectionTitle({title,text}){return <div className="sectionTitle"><h1>{title}</h1><p>{text}</p></div>}
+
+function DtcCard({ t, code, setCode, dtc, status, onSearch }) {
+  return <div className="card dtc"><h2>{t.codeSearch}</h2><form className="searchBox" onSubmit={onSearch}><input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder={t.enterCode} /><button disabled={status === 'loading'}>{status === 'loading' ? t.searching : t.search}</button></form><div className="upload">{t.uploadImage}</div>{status === 'invalid' && <p className="note">{t.invalidCode}</p>}{status === 'local' && <p className="note">{t.localDtc}</p>}{status === 'remote' && <p className="note">{t.remoteDtc}</p>}{dtc && <div className="result"><h3>{dtc.title}</h3><p><b>{t.symptoms}:</b> {dtc.summary}</p><p><b>{t.causes}:</b> {dtc.causes.join(', ')}</p><p><b>{t.fixes}:</b> {dtc.urgency}</p><button>{t.askAi}</button></div>}</div>
+}
+
+function SectionTitle({ title, text }) {
+  return <div className="sectionTitle"><h1>{title}</h1><p>{text}</p></div>
+}
+
 export default App
